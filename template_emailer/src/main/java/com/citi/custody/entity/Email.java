@@ -18,13 +18,20 @@ public class Email {
     private String createdBy;
     private List<String> to;
     private List<String> cc;
+    private String status; // DRAFT, SCHEDULED, SENT, FAILED
+    private String errorMessage;
+    private List<String> attachments;
 
     public String getId() {
         return id;
     }
 
     public void setId(String id) {
-        this.id = id;
+        if (id != null && id.trim().isEmpty()) {
+            this.id = null;
+        } else {
+            this.id = id;
+        }
     }
 
     public String getEmailName() {
@@ -91,6 +98,30 @@ public class Email {
         this.cc = cc;
     }
 
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
+    }
+
+    public List<String> getAttachments() {
+        return attachments;
+    }
+
+    public void setAttachments(List<String> attachments) {
+        this.attachments = attachments;
+    }
+
     @Override
     public String toString() {
         return "Email{" +
@@ -103,6 +134,9 @@ public class Email {
                 ", createdBy='" + createdBy + '\'' +
                 ", to=" + to +
                 ", cc=" + cc +
+                ", status='" + status + '\'' +
+                ", errorMessage='" + errorMessage + '\'' +
+                ", attachments=" + attachments +
                 '}';
     }
 }

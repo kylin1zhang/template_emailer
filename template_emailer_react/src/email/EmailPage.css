@@ -1,4 +1,6 @@
 .email-page {
+    max-width: 1200px;
+    margin: 0 auto;
     padding: 20px;
     font-family: Arial, sans-serif;
     margin-left: 250px;
@@ -35,21 +37,18 @@
 .filter {
     margin-bottom: 20px;
     display: flex;
-    justify-content: flex-start;
     align-items: center;
-    background-color: #f8f9fa;
-    padding: 10px;
-    border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.filter input,
-.filter select {
+.filter label {
     margin-right: 10px;
-    padding: 5px;
-    border: 1px solid #ced4da;
-    border-radius: 5px;
-    font-size: 1em;
+}
+
+.filter input {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    min-width: 300px;
 }
 
 .email-table {
@@ -60,108 +59,161 @@
 
 .email-table th,
 .email-table td {
-    border: 1px solid #ddd;
-    padding: 8px;
+    padding: 12px 15px;
     text-align: left;
+    border-bottom: 1px solid #ddd;
 }
 
 .email-table th {
-    background-color: #f2f2f2;
-    color: #333;
-}
-
-.email-table tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
-
-.email-table th,
-.email-table td {
-    padding: 12px 15px;
+    background-color: #f8f9fa;
+    font-weight: 600;
 }
 
 .email-table tr:hover {
-    background-color: transparent;
-    /* Remove hover effect on rows */
+    background-color: #f5f5f5;
+}
+
+.edit-button, .delete-button, .send-button, .retry-button {
+    padding: 6px 12px;
+    margin-right: 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: white;
+}
+
+.edit-button {
+    background-color: #007bff;
+}
+
+.edit-button:hover {
+    background-color: #0069d9;
+}
+
+.delete-button {
+    background-color: #dc3545;
+}
+
+.delete-button:hover {
+    background-color: #c82333;
+}
+
+.send-button {
+    background-color: #28a745;
+}
+
+.send-button:hover {
+    background-color: #218838;
+}
+
+.retry-button {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.retry-button:hover {
+    background-color: #e0a800;
+}
+
+.create-button {
+    padding: 10px 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.create-button:hover {
+    background-color: #0069d9;
 }
 
 .pagination {
     display: flex;
     justify-content: center;
-    align-items: center;
-    margin-top: 20px;
+    margin-bottom: 20px;
 }
 
 .pagination button {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 10px 15px;
+    padding: 8px 12px;
     margin: 0 5px;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
     cursor: pointer;
-    border-radius: 5px;
-    transition: background-color 0.3s;
+}
+
+.pagination button:hover {
+    background-color: #e9ecef;
 }
 
 .pagination button:disabled {
-    background-color: #cccccc;
     cursor: not-allowed;
-}
-
-.pagination button:hover:not(:disabled) {
-    background-color: #0056b3;
+    opacity: 0.5;
 }
 
 .emails-per-page {
     display: flex;
-    justify-content: center;
+    justify-content: flex-end;
     align-items: center;
-    margin-top: 20px;
-    /* Increase margin to separate from above content */
-    background-color: #f8f9fa;
-    padding: 10px;
-    border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .emails-per-page label {
     margin-right: 10px;
-    font-size: 1em;
 }
 
 .emails-per-page select {
-    padding: 5px;
-    border: 1px solid #ced4da;
-    border-radius: 5px;
-    font-size: 1em;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
 }
 
-.edit-button,
-.delete-button {
-    width: 80px;
-    /* Fixed width for consistency */
-    background-color: #6c757d;
-    /* Edit button color */
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    cursor: pointer;
-    border-radius: 5px;
-    transition: background-color 0.3s;
-    font-size: 1em;
-    /* Ensure consistent font size */
-    margin-right: 5px;
-    /* Add margin between buttons */
+/* Status badge styles */
+.status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
 }
 
-.edit-button:hover {
-    background-color: #5a6268;
+.status-badge.success {
+    background-color: #e6f7e6;
+    color: #28a745;
 }
 
-.delete-button {
+.status-badge.warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.status-badge.error {
+    background-color: #f8d7da;
+    color: #dc3545;
+}
+
+.status-badge.info {
+    background-color: #e2f3fd;
+    color: #17a2b8;
+}
+
+.error-tooltip {
+    position: relative;
+    display: inline-block;
+    margin-left: 6px;
+    cursor: help;
+}
+
+.error-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
     background-color: #dc3545;
-    /* Delete button color */
-}
-
-.delete-button:hover {
-    background-color: #c82333;
+    color: white;
+    border-radius: 50%;
+    font-style: normal;
+    font-size: 12px;
+    font-weight: bold;
 }

@@ -9,6 +9,7 @@ public class TemplateInfo {
     private String filename;
     private String updateBy;
     private Date updateTime;
+    private String content;
 
     public String getId() {
         return id;
@@ -42,6 +43,14 @@ public class TemplateInfo {
         this.updateTime = updateTime;
     }
 
+    public String getContent() {
+        return content;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
+
     public String getFormattedUpdateTime(Date updateTime) {
         if (updateTime == null) {
             return "";
@@ -58,6 +67,7 @@ public class TemplateInfo {
                 ", filename='" + filename + '\'' +
                 ", updateBy='" + updateBy + '\'' +
                 ", updateTime=" + updateTime +
+                ", content='" + (content != null ? "[CONTENT]" : "null") + '\'' +
                 '}';
     }
 }

@@ -1,68 +1,178 @@
 /* EmailEdit.css */
 .email-editor {
-    max-width: 800px; /* Increased max-width */
-    margin: 40px auto; /* Added vertical margin for consistent spacing */
-    padding: 30px; /* Increased padding */
-    border: 1px solid #ddd; /* Softer border color */
-    border-radius: 10px; /* Slightly increased border-radius */
-    background-color: #ffffff; /* Changed background color to white */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Added subtle shadow for depth */
-  }
-  .editor-section {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 30px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background-color: #ffffff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.editor-section {
     display: flex;
     align-items: center;
-    margin-bottom: 20px; /* Increased margin-bottom */
-  } 
-  .editor-section label {
-    flex: 0 0 150px; /* Increased flex-basis */
+    margin-bottom: 20px;
+}
+
+.editor-section label {
+    flex: 0 0 150px;
     text-align: left;
-    margin-right: 15px; /* Increased margin-right */
-  }
-  .editor-section input,
-  .editor-section select {
+    margin-right: 15px;
+}
+
+.editor-section input,
+.editor-section select {
     flex: 1;
-    padding: 10px; /* Increased padding */
+    padding: 10px;
     border: 1px solid #ccc;
     border-radius: 4px;
-    background-color: #f9f9f9; /* Light background for inputs */
-  }
-  .editor-section input.disabled-input {
-    background-color: #e9ecef; /* Different background for disabled inputs */
-    border: 1px solid #ced4da; /* Different border for disabled inputs */
-  }
-  .template-preview {
+    background-color: #f9f9f9;
+}
+
+.editor-section input.disabled-input {
+    background-color: #e9ecef;
+    border: 1px solid #ced4da;
+}
+
+.template-preview {
     display: flex;
     align-items: center;
-  }
-  .selected-template {
-    display: flex;
-    align-items: center;
-  }
-  .selected-template span {
-    margin-right: 15px; /* Increased margin-right */
-  }
-  .selected-template button {
-    background-color: #ff4d4d;
-    color: white;
-    border: none;
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
     border-radius: 4px;
-    padding: 8px 15px; /* Increased padding */
-    cursor: pointer;
-  }
-  button {
-    padding: 12px 25px; /* Increased padding */
+    background-color: #f9f9f9;
+}
+
+.template-preview select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+}
+
+.selected-template {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    justify-content: space-between;
+}
+
+.selected-template span {
+    margin-right: 15px;
+}
+
+.selected-template button {
+    background-color: #ff4d4d;
+    margin-left: 15px;
+    padding: 8px 15px;
+}
+
+.selected-template button:hover {
+    background-color: #ff3333;
+}
+
+.template-warning {
+    color: #ff9800;
+    margin-top: 10px;
+    font-style: italic;
+    font-size: 0.9em;
+    display: block;
+}
+
+/* 通用按钮样式 */
+button {
+    padding: 8px 15px;
     background-color: #007bff;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-  }
-  button:hover {
+    margin-right: 10px;
+}
+
+button:hover {
     background-color: #0056b3;
-  }
-  .button-group {
+}
+
+button:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+}
+
+/* 按钮组中的按钮 */
+.button-group {
     display: flex;
-    justify-content: flex-end;
-    gap: 10px; /* Space between buttons */
-  }
+    align-items: center;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.button-group button {
+    padding: 12px 25px;
+}
+
+.button-group button.send-button {
+    background-color: #28a745;
+}
+
+.button-group button.send-button:hover {
+    background-color: #218838;
+}
+
+.attachment-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.attachments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.attachment-item {
+    display: flex;
+    align-items: center;
+    background-color: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+}
+
+.attachment-item span {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.attachment-item button {
+    background-color: #dc3545;
+    padding: 5px 10px;
+    margin-left: 10px;
+}
+
+.attachment-item button:hover {
+    background-color: #c82333;
+}
+
+.upload-progress {
+    width: 100%;
+    height: 6px;
+    background-color: #e9ecef;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #007bff;
+    transition: width 0.3s ease;
+}
   

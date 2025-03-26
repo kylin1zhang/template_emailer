@@ -8,5 +8,8 @@ export interface EmailInfo {
     createdBy: string;
     to: string[];
     cc: string[];
+    status?: string; // DRAFT, SCHEDULED, SENT, FAILED
+    errorMessage?: string;
+    attachments?: string[];
   }
   

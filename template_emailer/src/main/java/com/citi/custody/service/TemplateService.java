@@ -3,6 +3,7 @@ package com.citi.custody.service;
 import com.citi.custody.entity.TemplateInfo;
 import com.mongodb.client.gridfs.model.GridFSFile;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.bson.Document;
 import org.bson.types.ObjectId;
@@ -74,16 +75,34 @@ public class TemplateService {
         return new InputStreamResource(inputStream);
     }
 
+    // 获取模板内容
+    private String getTemplateContent(String objectId) {
+        try {
+            GridFSFile gridFSFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(objectId)));
+            if (gridFSFile == null) {
+                return null;
+            }
+            InputStream inputStream = gridFsTemplate.getResource(gridFSFile).getInputStream();
+            return IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            log.error("Error reading template content: ", e);
+            return null;
+        }
+    }
+
     public TemplateInfo setTemplateInfo(GridFSFile file) {
         if(file != null) {
             Document metadata = file.getMetadata();
             TemplateInfo templateInfo = new TemplateInfo();
             templateInfo.setId(file.getObjectId().toHexString());
             if(metadata != null){
-            templateInfo.setFilename(metadata.getString("filename"));
-            templateInfo.setUpdateBy(metadata.getString("updateBy"));
-            templateInfo.setUpdateTime((Date) metadata.get("updateTime"));
-            return templateInfo;
+                templateInfo.setFilename(metadata.getString("filename"));
+                templateInfo.setUpdateBy(metadata.getString("updateBy"));
+                templateInfo.setUpdateTime((Date) metadata.get("updateTime"));
+                // 设置模板内容
+                String content = getTemplateContent(file.getObjectId().toHexString());
+                templateInfo.setContent(content);
+                return templateInfo;
             }
         }
         return null;
@@ -121,7 +140,7 @@ public class TemplateService {
         for (GridFSFile file : files) {
             TemplateInfo templateInfo = setTemplateInfo(file);
             if(templateInfo != null){
-            templates.add(templateInfo);
+                templates.add(templateInfo);
             }
         }
         return templates;
