@@ -1,0 +1,68 @@
+/* EmailEdit.css */
+.email-editor {
+    max-width: 800px; /* Increased max-width */
+    margin: 40px auto; /* Added vertical margin for consistent spacing */
+    padding: 30px; /* Increased padding */
+    border: 1px solid #ddd; /* Softer border color */
+    border-radius: 10px; /* Slightly increased border-radius */
+    background-color: #ffffff; /* Changed background color to white */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Added subtle shadow for depth */
+  }
+  .editor-section {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px; /* Increased margin-bottom */
+  } 
+  .editor-section label {
+    flex: 0 0 150px; /* Increased flex-basis */
+    text-align: left;
+    margin-right: 15px; /* Increased margin-right */
+  }
+  .editor-section input,
+  .editor-section select {
+    flex: 1;
+    padding: 10px; /* Increased padding */
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #f9f9f9; /* Light background for inputs */
+  }
+  .editor-section input.disabled-input {
+    background-color: #e9ecef; /* Different background for disabled inputs */
+    border: 1px solid #ced4da; /* Different border for disabled inputs */
+  }
+  .template-preview {
+    display: flex;
+    align-items: center;
+  }
+  .selected-template {
+    display: flex;
+    align-items: center;
+  }
+  .selected-template span {
+    margin-right: 15px; /* Increased margin-right */
+  }
+  .selected-template button {
+    background-color: #ff4d4d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 15px; /* Increased padding */
+    cursor: pointer;
+  }
+  button {
+    padding: 12px 25px; /* Increased padding */
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button:hover {
+    background-color: #0056b3;
+  }
+  .button-group {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px; /* Space between buttons */
+  }
+  

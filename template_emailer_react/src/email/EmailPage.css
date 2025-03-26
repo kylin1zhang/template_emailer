@@ -1,0 +1,167 @@
+.email-page {
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    margin-left: 250px;
+    /* Adjust this value based on the width of your navigation bar */
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.header h1 {
+    font-size: 2em;
+    color: #333;
+}
+
+.compose-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 1em;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.compose-button:hover {
+    background-color: #0056b3;
+}
+
+.filter {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.filter input,
+.filter select {
+    margin-right: 10px;
+    padding: 5px;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    font-size: 1em;
+}
+
+.email-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.email-table th,
+.email-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.email-table th {
+    background-color: #f2f2f2;
+    color: #333;
+}
+
+.email-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.email-table th,
+.email-table td {
+    padding: 12px 15px;
+}
+
+.email-table tr:hover {
+    background-color: transparent;
+    /* Remove hover effect on rows */
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+}
+
+.pagination button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    margin: 0 5px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.pagination button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.pagination button:hover:not(:disabled) {
+    background-color: #0056b3;
+}
+
+.emails-per-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+    /* Increase margin to separate from above content */
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.emails-per-page label {
+    margin-right: 10px;
+    font-size: 1em;
+}
+
+.emails-per-page select {
+    padding: 5px;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    font-size: 1em;
+}
+
+.edit-button,
+.delete-button {
+    width: 80px;
+    /* Fixed width for consistency */
+    background-color: #6c757d;
+    /* Edit button color */
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+    font-size: 1em;
+    /* Ensure consistent font size */
+    margin-right: 5px;
+    /* Add margin between buttons */
+}
+
+.edit-button:hover {
+    background-color: #5a6268;
+}
+
+.delete-button {
+    background-color: #dc3545;
+    /* Delete button color */
+}
+
+.delete-button:hover {
+    background-color: #c82333;
+}
