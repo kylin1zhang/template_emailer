@@ -4,6 +4,8 @@ import com.citi.custody.entity.FilterParams;
 import com.citi.custody.entity.TemplateInfo;
 import com.citi.custody.entity.User;
 import com.citi.custody.service.TemplateService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
@@ -21,6 +23,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/template")
 public class TemplateController {
+    private static final Logger log = LoggerFactory.getLogger(TemplateController.class);
+
     @Autowired
     private TemplateService templateService;
 
@@ -62,5 +66,33 @@ public class TemplateController {
     public List<TemplateInfo> getTemplateByUpdatedBy(@PathVariable String updateBy) {
         return templateService.getTemplateByUpdatedBy(updateBy);
     }
-    
+
+    /**
+     * 删除指定ID的模板
+     * @param id 要删除的模板ID
+     * @return 删除结果
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteTemplate(@PathVariable String id) {
+        log.info("Received request to delete template, ID: {}", id);
+        
+        if (id == null || id.trim().isEmpty()) {
+            log.warn("Failed to delete template: ID is empty");
+            return ResponseEntity.badRequest().body("Template ID cannot be empty");
+        }
+        
+        try {
+            boolean deleted = templateService.deleteTemplate(id);
+            if (deleted) {
+                log.info("Template deleted successfully, ID: {}", id);
+                return ResponseEntity.ok().body("Template deleted successfully");
+            } else {
+                log.warn("Failed to delete template, ID: {}", id);
+                return ResponseEntity.status(403).body("Failed to delete template, insufficient permissions or template does not exist");
+            }
+        } catch (Exception e) {
+            log.error("Exception occurred while deleting template, ID: {}, error: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(500).body("Error occurred while deleting template: " + e.getMessage());
+        }
+    }
 }

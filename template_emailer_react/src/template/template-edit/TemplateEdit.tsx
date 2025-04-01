@@ -132,7 +132,21 @@ const TemplateEdit: React.FC = () => {
                             version: "latest",
                             appearance: {
                                 theme: "modern_light"
-                            }
+                            },
+                            features: {
+                                columnEditor: {
+                                    enabled: true,
+                                    layouts: [
+                                        { name: "1:1", layout: [1, 1] },
+                                        { name: "1:1:1", layout: [1, 1, 1] },
+                                        { name: "1:1:1:1", layout: [1, 1, 1, 1] },
+                                        { name: "1:2", layout: [1, 2] },
+                                        { name: "2:1", layout: [2, 1] },
+                                        { name: "1:2:1", layout: [1, 2, 1] },
+                                        { name: "2:1:2", layout: [2, 1, 2] }
+                                    ]
+                                }
+                            } as any
                         }}
                     />
                 </React.StrictMode>

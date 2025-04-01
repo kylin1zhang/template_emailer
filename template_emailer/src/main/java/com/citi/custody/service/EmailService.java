@@ -113,12 +113,6 @@ public class EmailService {
                 return false;
             }
 
-            // Check if email has been sent
-            if ("SENT".equals(email.getStatus())) {
-                logger.warn("Cannot delete email that has been sent, ID: {}", id);
-                return false;
-            }
-
             emailDao.deleteById(id);
             logger.info("Email deleted successfully, ID: {}", id);
             return true;

@@ -19,6 +19,7 @@ import org.springframework.data.mongodb.gridfs.GridFsTemplate;;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -143,5 +144,93 @@ public class TemplateService {
             }
         }
         return templates;
+    }
+
+    /**
+     * 存储测试模板并返回模板ID
+     */
+    public String storeTestTemplate(TemplateInfo templateInfo) {
+        try {
+            // 确保模板信息不为空
+            if (templateInfo == null) {
+                throw new IllegalArgumentException("Template information cannot be empty");
+            }
+            
+            // 确保模板内容不为空
+            if (StringUtils.isEmpty(templateInfo.getContent())) {
+                throw new IllegalArgumentException("Template content cannot be empty");
+            }
+            
+            // 生成元数据
+            Document metadata = new Document();
+            metadata.put("updateBy", templateInfo.getUpdateBy() != null ? templateInfo.getUpdateBy() : "SYSTEM");
+            metadata.put("updateTime", templateInfo.getUpdateTime() != null ? templateInfo.getUpdateTime() : new Date());
+            metadata.put("filename", templateInfo.getFilename() != null ? templateInfo.getFilename() : "Test-Template-" + System.currentTimeMillis());
+            
+            // 存储模板内容并获取ID
+            ObjectId objectId = gridFsTemplate.store(
+                new ByteArrayInputStream(templateInfo.getContent().getBytes(StandardCharsets.UTF_8)),
+                templateInfo.getFilename(),
+                "application/json",
+                metadata
+            );
+            
+            log.info("Test template saved successfully, ID: {}", objectId.toHexString());
+            return objectId.toHexString();
+        } catch (Exception e) {
+            log.error("Error storing test template: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to store test template: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 删除指定ID的模板
+     * @param id 模板ID
+     * @return 删除结果，true表示成功，false表示失败
+     */
+    public boolean deleteTemplate(String id) {
+        try {
+            log.info("Attempting to delete template, ID: {}", id);
+            
+            if (StringUtils.isBlank(id)) {
+                log.warn("Failed to delete template: ID is empty");
+                return false;
+            }
+            
+            // 检查模板是否存在
+            GridFSFile file = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(id)));
+            if (file == null) {
+                log.warn("Failed to delete template: Template with ID {} not found", id);
+                return false;
+            }
+            
+            // 获取模板元数据
+            Document metadata = file.getMetadata();
+            String filename = file.getFilename();
+            log.info("Template found: ID={}, filename={}, size={} bytes", id, filename, file.getLength());
+            
+            // 检查当前用户是否有权限删除
+            // 注意：这里使用了用户权限检查，可根据需要调整或删除
+            String currentUser = SystemUserUtil.getCurrentUsername();
+            if (metadata != null) {
+                String updateBy = metadata.getString("updateBy");
+                if (!currentUser.equals(updateBy)) {
+                    log.warn("Failed to delete template: User {} is not the template creator {}", currentUser, updateBy);
+                    return false;
+                }
+                log.info("User {} has permission to delete this template", currentUser);
+            }
+            
+            // 检查模板是否被邮件引用
+            // 如果需要，可以在这里添加检查逻辑
+            
+            // 执行删除操作
+            gridFsTemplate.delete(new Query(Criteria.where("_id").is(id)));
+            log.info("Template deleted successfully: ID={}, filename={}", id, filename);
+            return true;
+        } catch (Exception e) {
+            log.error("Error deleting template {}: {}", id, e.getMessage(), e);
+            return false;
+        }
     }
 }

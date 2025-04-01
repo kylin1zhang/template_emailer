@@ -43,8 +43,46 @@ const TemplatePage: React.FC = () => {
     };
 
     const handleDelete = (id: string) => {
-        // Handle delete action
-        console.log('Delete template with id:', id);
+        // 确认删除操作
+        if (window.confirm('Are you sure you want to delete this template?')) {
+            // 调用删除API
+            fetch(`${config.apiUrl}/template/${id}`, {
+                method: 'DELETE',
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to delete template');
+                    }
+                    return response.text();
+                })
+                .then(result => {
+                    console.log('Delete successful:', result);
+                    alert('Template deleted successfully');
+                    
+                    // 刷新模板列表
+                    const params = {
+                        page: currentPage - 1,
+                        size: templatesPerPage,
+                        name: filter,
+                    };
+                    return fetch(`${config.apiUrl}/template/templatesList`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(params),
+                    });
+                })
+                .then(response => response.json())
+                .then((data: Page<TemplateInfo>) => {
+                    setTemplates(data.content);
+                    setTotalPages(data.totalPages);
+                })
+                .catch(error => {
+                    console.error('Error deleting template:', error);
+                    alert(`Failed to delete template: ${error.message}`);
+                });
+        }
     };
 
     const handleCreate = () => {

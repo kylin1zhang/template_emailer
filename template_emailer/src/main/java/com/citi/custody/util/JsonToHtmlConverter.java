@@ -33,23 +33,57 @@ public class JsonToHtmlConverter {
                 JsonNode rows = bodyNode.get("rows");
                 if (rows != null && rows.isArray()) {
                     for (JsonNode row : rows) {
-                        htmlBuilder.append("<div style='margin: 10px;'>"); // Row container
+                        htmlBuilder.append("<div style='display: flex; flex-wrap: wrap; margin: 10px; width: 100%;'>"); // Row container as flex
 
                         JsonNode columns = row.get("columns");
                         if (columns != null && columns.isArray()) {
-                            for (JsonNode column : columns) {
-                                htmlBuilder.append("<div style='display: inline-block; margin: 5px;'>"); // Column container
+                            // Calculate column proportions and widths
+                            int totalColumns = columns.size();
+                            int[] columnRatios = new int[totalColumns];
+                            int totalRatio = 0;
+                            
+                            // Check if columns have explicit width ratios
+                            boolean hasExplicitRatios = false;
+                            for (int i = 0; i < totalColumns; i++) {
+                                JsonNode column = columns.get(i);
+                                if (column.has("ratio") && column.get("ratio").isInt()) {
+                                    hasExplicitRatios = true;
+                                    columnRatios[i] = column.get("ratio").asInt();
+                                    totalRatio += columnRatios[i];
+                                } else {
+                                    columnRatios[i] = 1; // Default ratio
+                                    totalRatio += 1;
+                                }
+                            }
+                            
+                            // If no explicit ratios, use equal distribution
+                            if (!hasExplicitRatios) {
+                                totalRatio = totalColumns;
+                            }
+
+                            // Render each column with appropriate width
+                            for (int i = 0; i < totalColumns; i++) {
+                                JsonNode column = columns.get(i);
+                                int ratio = columnRatios[i];
+                                float widthPercentage = (ratio * 100.0f) / totalRatio;
+                                
+                                // Create column with calculated width
+                                htmlBuilder.append("<div style='flex: ")
+                                    .append(ratio)
+                                    .append("; min-width: ")
+                                    .append(widthPercentage)
+                                    .append("%; padding: 10px; box-sizing: border-box;'>"); // Column container with flex ratio
 
                                 JsonNode contents = column.get("contents");
                                 if (contents != null && contents.isArray()) {
                                     for (JsonNode content : contents) {
-                                        // 安全获取内容类型
-                                        String type = "text"; // 默认为文本类型
+                                        // Get content type safely
+                                        String type = "text"; // Default to text type
                                         if (content.has("type") && !content.get("type").isNull()) {
                                             type = content.get("type").asText();
                                         }
                                         
-                                        // 安全获取文本值
+                                        // Get text value safely
                                         String text = "";
                                         if (content.has("values") && !content.get("values").isNull()) {
                                             JsonNode values = content.get("values");
@@ -59,11 +93,60 @@ public class JsonToHtmlConverter {
                                         }
 
                                         if ("text".equals(type)) {
-                                            htmlBuilder.append("<p>").append(text).append("</p>");
+                                            htmlBuilder.append("<p style='width: 100%;'>").append(text).append("</p>");
                                         } else if ("heading".equals(type)) {
-                                            htmlBuilder.append("<h1>").append(text).append("</h1>");
+                                            htmlBuilder.append("<h1 style='width: 100%;'>").append(text).append("</h1>");
                                         } else if ("button".equals(type)) {
-                                            htmlBuilder.append("<button>").append(text).append("</button>");
+                                            htmlBuilder.append("<button style='width: 100%;'>").append(text).append("</button>");
+                                        } else if ("image".equals(type)) {
+                                            // Process image type
+                                            String imageUrl = "";
+                                            if (content.has("values") && !content.get("values").isNull()) {
+                                                JsonNode values = content.get("values");
+                                                if (values.has("src") && !values.get("src").isNull()) {
+                                                    if (values.get("src").isObject() && values.get("src").has("url")) {
+                                                        // If src is an object, get its url property
+                                                        imageUrl = values.get("src").get("url").asText();
+                                                        System.out.println("Image src is an object, using src.url: " + imageUrl);
+                                                    } else {
+                                                        // Use src value directly
+                                                        imageUrl = values.get("src").asText();
+                                                    }
+                                                } else if (values.has("url") && !values.get("url").isNull()) {
+                                                    imageUrl = values.get("url").asText();
+                                                } else if (values.has("href") && !values.get("href").isNull()) {
+                                                    imageUrl = values.get("href").asText();
+                                                }
+                                            }
+                                            
+                                            if (!imageUrl.isEmpty()) {
+                                                // Ensure image URL is a complete URL
+                                                if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://") && !imageUrl.startsWith("data:")) {
+                                                    // Get image filename for content-id
+                                                    String imgFileName = imageUrl;
+                                                    if (imageUrl.contains("/")) {
+                                                        imgFileName = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
+                                                    }
+                                                    // Use a simpler Content-ID format to avoid special characters
+                                                    String contentId = imgFileName.replaceAll("[^a-zA-Z0-9.]", "_");
+                                                    
+                                                    // Note: Make sure contentId doesn't contain extension dot
+                                                    if (contentId.contains(".")) {
+                                                        contentId = contentId.substring(0, contentId.lastIndexOf('.'));
+                                                    }
+                                                    
+                                                    // Don't add timestamp as we don't know the exact time of email sending
+                                                    // But we can add a fixed prefix to ensure it can match with generated ID
+                                                    contentId = contentId + "_img";
+                                                    
+                                                    imageUrl = "cid:" + contentId;
+                                                    System.out.println("Processing image: " + imgFileName + " -> contentId: " + contentId + " -> imageUrl: " + imageUrl);
+                                                }
+                                                
+                                                String altText = text.isEmpty() ? "Image" : text;
+                                                htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
+                                                    .append(altText).append("\" style=\"max-width:100%;height:auto;\"/>");
+                                            }
                                         }
                                     }
                                 }
@@ -76,14 +159,14 @@ public class JsonToHtmlConverter {
                     }
                 }
             } else {
-                // 如果没有正确的body结构，添加默认内容
+                // If there is no correct body structure, add default content
                 htmlBuilder.append("<div><p>").append(json).append("</p></div>");
             }
 
             htmlBuilder.append("</body></html>");
             return htmlBuilder.toString();
         } catch (Exception e) {
-            // 记录错误但不抛出异常，而是返回简单的HTML
+            // Log error but don't throw exception, return simple HTML
             System.err.println("Error converting JSON to HTML: " + e.getMessage());
             return "<html><body><p>Error parsing template content: " + e.getMessage() + "</p><pre>" + json + "</pre></body></html>";
         }
