@@ -1,5 +1,6 @@
 package com.citi.custody.service;
 
+import com.citi.custody.util.JsonToHtmlConverter;
 import com.citi.custody.dao.EmailDao;
 import com.citi.custody.entity.Email;
 import com.citi.custody.entity.TemplateInfo;
@@ -36,7 +37,7 @@ public class EmailSenderService {
 
     @Value("${attachment.storage.path:/temp/attachments}")
     private String attachmentPath;
-    
+
     @Value("${email.test.mode:false}")
     private boolean testMode;
 
@@ -49,18 +50,19 @@ public class EmailSenderService {
 
         try {
             Date now = new Date();
+
+            // Schedule for future sending
             if (email.getSentTime() != null && email.getSentTime().after(now)) {
-                // Schedule for future sending
                 email.setStatus("SCHEDULED");
                 emailDao.saveEmail(email);
                 logger.info("Email scheduled for future sending: {}", email.getId());
                 return;
             }
-            
-            // 测试模式：不实际发送邮件，只更新状态
+
+            // Test Mode: Do not send email, just update the status
             if (testMode) {
-                logger.info("TEST MODE: Email would be sent to: {} with subject: {}", 
-                    email.getTo(), email.getEmailName());
+                logger.info("TEST MODE: Email would be sent to: {} with subject: {}", email.getTo(),
+                        email.getEmailName());
                 email.setStatus("SENT");
                 email.setSentTime(now);
                 emailDao.saveEmail(email);
@@ -80,7 +82,7 @@ public class EmailSenderService {
 
             helper.setFrom(sender);
             helper.setSubject(email.getEmailName());
-            
+
             // Set recipients
             if (email.getTo() != null && !email.getTo().isEmpty()) {
                 helper.setTo(email.getTo().toArray(new String[0]));
@@ -88,59 +90,73 @@ public class EmailSenderService {
                 logger.warn("No recipients specified for email: {}", email.getId());
                 throw new MessagingException("No recipients specified");
             }
-            
+
             if (email.getCc() != null && !email.getCc().isEmpty()) {
                 helper.setCc(email.getCc().toArray(new String[0]));
             }
 
-            // Set content from template or default
+            // Set content from template or default content
             String content = "This is an automated email.";
-            if (template != null && template.getContent() != null) {
-                content = template.getContent();
+            try {
+                if (template != null) {
+                    if (template.getContent() != null) {
+                        logger.debug("Converting template content to HTML for email: {}", email.getId());
+                        content = JsonToHtmlConverter.convertJsonToHtml(template.getContent());
+                        logger.debug("Template content converted successfully");
+                    } else {
+                        logger.warn("Template {} has null content, using default content for email: {}", 
+                            template.getId(), email.getId());
+                    }
+                } else {
+                    logger.warn("No template found for templateId: {}, using default content for email: {}", 
+                        email.getContentTemplateId(), email.getId());
+                }
+            } catch (Exception e) {
+                logger.error("Error converting template content to HTML for email {}: {}", 
+                    email.getId(), e.getMessage(), e);
+                content = "<html><body><p>Error parsing template: " + e.getMessage() + "</p></body></html>";
             }
             helper.setText(content, true); // true indicates HTML content
 
             // Add attachments if any
             if (email.getAttachments() != null && !email.getAttachments().isEmpty()) {
-                boolean hasValidAttachments = false;
                 for (String attachment : email.getAttachments()) {
                     File file = new File(attachmentPath + "/" + attachment);
                     if (file.exists()) {
                         FileSystemResource resource = new FileSystemResource(file);
                         helper.addAttachment(file.getName(), resource);
-                        hasValidAttachments = true;
+                        logger.info("Attachment added: {}", file.getName());
                     } else {
-                        logger.warn("Attachment not found: {}", attachment);
+                        logger.warn("Attachment not found: {}", file.getAbsolutePath());
                     }
-                }
-                
-                if (!hasValidAttachments && !email.getAttachments().isEmpty()) {
-                    logger.warn("None of the specified attachments were found for email: {}", email.getId());
                 }
             }
 
             try {
                 // Send email
                 mailSender.send(message);
-                
+
                 // Update email status
                 email.setStatus("SENT");
                 email.setSentTime(now);
                 email.setErrorMessage(null);
                 emailDao.saveEmail(email);
-                
+
                 logger.info("Email sent successfully: {}", email.getId());
             } catch (Exception e) {
-                logger.error("Failed to send email: {}", e.getMessage(), e);
+                logger.error("Failed to create email message: {}", e.getMessage(), e);
                 email.setStatus("FAILED");
                 email.setErrorMessage(e.getMessage());
                 emailDao.saveEmail(email);
-                
+
                 // 如果是身份验证错误，给出更详细的提示
+
                 if (e.getMessage() != null && e.getMessage().contains("Authentication")) {
-                    logger.error("邮件服务器身份验证失败。请检查邮箱设置，确保允许SMTP访问或已配置应用密码。");
+                    logger.error(
+                            "Mail server authentication failed. Please check your mailbox settings to ensure SMTP access is allowed or an app password is configured.");
                 }
             }
+
         } catch (MessagingException e) {
             logger.error("Failed to create email message: {}", e.getMessage(), e);
             email.setStatus("FAILED");
@@ -153,7 +169,7 @@ public class EmailSenderService {
             emailDao.saveEmail(email);
         }
     }
-    
+
     public void resendFailedEmail(String emailId) {
         Email email = emailDao.findEmailById(emailId);
         if (email != null && "FAILED".equals(email.getStatus())) {
@@ -166,4 +182,4 @@ public class EmailSenderService {
             logger.warn("Cannot resend - email is not in FAILED status: {}", emailId);
         }
     }
-} 
+}

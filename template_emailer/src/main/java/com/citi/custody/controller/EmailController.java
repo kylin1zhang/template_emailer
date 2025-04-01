@@ -36,13 +36,13 @@ public class EmailController {
 
     @Autowired
     private EmailService emailService;
-    
+
     @Autowired
     private EmailSenderService emailSenderService;
-    
+
     @Value("${attachment.storage.path:/temp/attachments}")
     private String attachmentPath;
-    
+
     @Autowired
     private org.springframework.data.mongodb.core.MongoTemplate mongoTemplate;
 
@@ -56,22 +56,22 @@ public class EmailController {
                 logger.warn("Invalid email parameters: emailName or contentTemplateId is empty");
                 return ResponseEntity.badRequest().body("Email subject and template ID cannot be empty");
             }
-            
+
             // Set default status if not provided
             if (email.getStatus() == null) {
                 email.setStatus("DRAFT");
                 logger.debug("Setting default status to DRAFT");
             }
-            
+
             // Save the email
             String id = emailService.saveEmail(email);
-            
+
             // Check the result
             if (StringUtils.isBlank(id)) {
                 logger.error("Failed to save email: no ID returned");
                 return ResponseEntity.status(500).body("Failed to save email: no ID returned");
             }
-            
+
             logger.info("Email saved successfully with ID: {}", id);
             return ResponseEntity.ok(id);
         } catch (Exception e) {
@@ -91,7 +91,7 @@ public class EmailController {
     public Email getEmailById(@PathVariable String id) {
         return emailService.getEmailById(id);
     }
-    
+
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteEmail(@PathVariable String id) {
         try {
@@ -101,9 +101,9 @@ public class EmailController {
                 logger.warn("Invalid email ID: empty");
                 return ResponseEntity.badRequest().body("Email ID cannot be empty");
             }
-            
+
             boolean deleted = emailService.deleteEmail(id);
-            
+          
             if (deleted) {
                 logger.info("Email deleted successfully, ID: {}", id);
                 return ResponseEntity.ok("Email deleted successfully");
@@ -116,7 +116,7 @@ public class EmailController {
             return ResponseEntity.status(500).body("Error deleting email: " + e.getMessage());
         }
     }
-    
+
     @PostMapping("/send/{id}")
     public ResponseEntity<String> sendEmail(@PathVariable String id) {
         try {
@@ -126,14 +126,14 @@ public class EmailController {
                 logger.warn("Invalid email ID: empty");
                 return ResponseEntity.badRequest().body("Email ID cannot be empty");
             }
-            
+
             // Check if email exists
             Email email = emailService.getEmailById(id);
             if (email == null) {
                 logger.warn("Email not found with ID: {}", id);
                 return ResponseEntity.status(404).body("Email not found with ID: " + id);
             }
-            
+
             emailSenderService.sendEmail(id);
             logger.info("Email sending process initiated for ID: {}", id);
             return ResponseEntity.ok("Email sending process initiated");
@@ -142,7 +142,7 @@ public class EmailController {
             return ResponseEntity.status(500).body("Failed to send email: " + e.getMessage());
         }
     }
-    
+
     @PostMapping("/retry/{id}")
     public ResponseEntity<String> retryFailedEmail(@PathVariable String id) {
         try {
@@ -153,53 +153,54 @@ public class EmailController {
             return ResponseEntity.badRequest().body("Failed to retry email: " + e.getMessage());
         }
     }
-    
+
     @PostMapping("/upload-attachment")
     public ResponseEntity<List<String>> uploadAttachments(@RequestParam("files") List<MultipartFile> files) {
         List<String> fileNames = new ArrayList<>();
-        
+      
         try {
-            // Ensure directory exists
+            // Ensure attachment storage directory exists
             File directory = new File(attachmentPath);
             if (!directory.exists()) {
                 directory.mkdirs();
             }
-            
+
             for (MultipartFile file : files) {
                 if (file.isEmpty()) {
                     continue;
                 }
-                
-                // Create unique filename
+
+                // Generate a unique file name
                 String originalFilename = file.getOriginalFilename();
                 String extension = "";
                 if (originalFilename != null && originalFilename.contains(".")) {
                     extension = originalFilename.substring(originalFilename.lastIndexOf("."));
                 }
                 String newFilename = UUID.randomUUID().toString() + extension;
-                
-                // Save file
-                Path filePath = Paths.get(attachmentPath, newFilename);
-                Files.write(filePath, file.getBytes());
-                
+
+                // Save the file
+                Path filepath = Paths.get(attachmentPath, newFilename);
+                Files.write(filepath, file.getBytes());
+              
                 fileNames.add(newFilename);
+                logger.info("Attachment uploaded: {}", newFilename);
             }
-            
+
             return ResponseEntity.ok(fileNames);
         } catch (IOException e) {
             logger.error("Error uploading attachments: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.status(500).body(null);
         }
     }
 
-    // 添加诊断接口，测试MongoDB连接状态
+    // Add diagnostic endpoint to check MongoDB connection status
     @GetMapping("/mongo-status")
     public ResponseEntity<String> checkMongoStatus() {
         try {
             logger.info("Checking MongoDB connection status");
             String status = "MongoDB Connection Status:\n";
-            
-            // 测试连接
+
+            // Test connection
             status += "Connection Test: ";
             try {
                 mongoTemplate.getDb().getName();
@@ -208,8 +209,8 @@ public class EmailController {
                 status += "FAILED - " + e.getMessage() + "\n";
                 logger.error("MongoDB connection test failed", e);
             }
-            
-            // 测试写入
+
+            // Test write operation
             status += "Write Test: ";
             try {
                 org.bson.Document doc = new org.bson.Document();
@@ -221,8 +222,8 @@ public class EmailController {
                 status += "FAILED - " + e.getMessage() + "\n";
                 logger.error("MongoDB write test failed", e);
             }
-            
-            // 测试读取
+
+            // Test read operation
             status += "Read Test: ";
             try {
                 long count = mongoTemplate.getCollection("diagnostics").countDocuments();
@@ -231,7 +232,7 @@ public class EmailController {
                 status += "FAILED - " + e.getMessage() + "\n";
                 logger.error("MongoDB read test failed", e);
             }
-            
+
             logger.info("MongoDB connection check completed");
             return ResponseEntity.ok(status);
         } catch (Exception e) {
@@ -244,8 +245,8 @@ public class EmailController {
     public ResponseEntity<String> testSaveEmail() {
         try {
             logger.info("Testing simple email save functionality");
-            
-            // 创建一个简单的测试邮件对象
+
+            // Create a simple test email object
             Email testEmail = new Email();
             testEmail.setEmailName("Test Email " + System.currentTimeMillis());
             testEmail.setContentTemplateId("dummyTemplateId");
@@ -254,27 +255,27 @@ public class EmailController {
             testEmail.setCc(new ArrayList<>());
             testEmail.setStatus("DRAFT");
             testEmail.setAttachments(new ArrayList<>());
-            
-            // 确保ID为null，让MongoDB自动生成
+
+            // Ensure ID is null to let MongoDB generate it
             testEmail.setId(null);
-            
-            // 尝试保存
+
+            // Save the email
             logger.info("Saving test email: {}", testEmail);
             String id = emailService.saveEmail(testEmail);
-            
-            // 保存后检查ID
+
+          
             if (StringUtils.isBlank(id)) {
                 logger.error("Test save failed: no ID returned");
                 return ResponseEntity.status(500).body("Test save failed: no ID returned");
             }
-            
-            // 验证保存后能否通过ID找回邮件
+
+            // Verify the email can be retrieved by its ID
             Email savedEmail = emailService.getEmailById(id);
             if (savedEmail == null) {
                 logger.error("Test save failed: email could not be retrieved with ID: {}", id);
                 return ResponseEntity.status(500).body("Test save succeeded but email could not be retrieved with ID: " + id);
             }
-            
+
             logger.info("Test save successful with ID: {}", id);
             return ResponseEntity.ok("Test save successful with ID: " + id);
         } catch (Exception e) {

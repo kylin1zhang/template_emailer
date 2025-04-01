@@ -29,7 +29,7 @@ const EmailEditor = () => {
                     if (!data) {
                         throw new Error('No data received');
                     }
-                    
+
                     if (data.sentTime) {
                         data.sentTime = new Date(data.sentTime);
                     }
@@ -91,7 +91,18 @@ const EmailEditor = () => {
         if (emailInfo) {
             console.log('Fetching templates...');
             setIsTemplateLoading(true);
-            fetch(`${config.apiUrl}/template/update/TEST`)
+            // 使用模板列表API而不是按更新者筛选
+            fetch(`${config.apiUrl}/template/templatesList`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    page: 0,
+                    size: 100,
+                    name: '',
+                }),
+            })
                 .then(response => {
                     console.log('Template API response status:', response.status);
                     if (!response.ok) {
@@ -101,8 +112,15 @@ const EmailEditor = () => {
                 })
                 .then(data => {
                     console.log('Templates data received:', data);
-                    setTemplates(Array.isArray(data) ? data : []);
-                    console.log('Templates state set:', Array.isArray(data) ? data.length : 0, 'templates');
+                    // 根据API返回的格式提取模板列表
+                    let templatesList: TemplateInfo[] = [];
+                    if (data && data.content && Array.isArray(data.content)) {
+                        templatesList = data.content;
+                    } else if (Array.isArray(data)) {
+                        templatesList = data;
+                    }
+                    setTemplates(templatesList);
+                    console.log('Templates state set:', templatesList.length, 'templates');
                 })
                 .catch(error => {
                     console.error('Error fetching templates:', error);
@@ -117,57 +135,60 @@ const EmailEditor = () => {
 
     const handleSave = () => {
         if (!emailInfo) return;
-        
+
         // Add frontend validation
         if (!emailInfo.emailName.trim()) {
             alert('Subject cannot be empty');
             return;
         }
-        
+
         if (!emailInfo.to || emailInfo.to.length === 0 || !emailInfo.to[0]) {
             alert('Recipient(s) cannot be empty');
             return;
         }
-        
+
         if (!emailInfo.contentTemplateId) {
             alert('Please select a template');
             return;
         }
-        
+
         const url = `${config.apiUrl}/email/save`;
         const method = 'POST';
 
         // 让我们创建一个深拷贝而不仅仅是引用
         const emailToSave = JSON.parse(JSON.stringify(emailInfo));
-        
+
         // 确保没有null值，替换为适当的默认值
         if (!emailToSave.id) emailToSave.id = '';
         if (!emailToSave.createTime) emailToSave.createTime = new Date();
         if (!emailToSave.modifiedTime) emailToSave.modifiedTime = new Date();
         if (!emailToSave.createdBy) emailToSave.createdBy = 'TEST';
         if (!emailToSave.status) emailToSave.status = 'DRAFT';
+        if (emailToSave.sentTime && !(emailToSave.sentTime instanceof Date)) {
+            emailToSave.sentTime = new Date(emailToSave.sentTime);
+        }
         if (!Array.isArray(emailToSave.attachments)) emailToSave.attachments = [];
-        
+
         console.log('Saving email data:', JSON.stringify(emailToSave, null, 2));
 
         // 定义一个递归函数用于重试
         const attemptSave = (retryCount = 0, maxRetries = 1) => {
-        fetch(url, {
-            method,
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify(emailToSave),
             })
                 .then(response => {
                     console.log('Save email response status:', response.status);
                     // Headers.entries 在某些 TypeScript 版本可能不支持
-                    const headerObj: {[key: string]: string} = {};
+                    const headerObj: { [key: string]: string } = {};
                     response.headers.forEach((value, key) => {
                         headerObj[key] = value;
                     });
                     console.log('Response headers:', headerObj);
-                    
+
                     if (!response.ok) {
                         throw new Error(`Save failed: ${response.status} ${response.statusText}`);
                     }
@@ -175,13 +196,13 @@ const EmailEditor = () => {
                 })
                 .then(text => {
                     console.log('Raw response content:', text);
-                    
+
                     // Check if response is empty
                     if (!text || text.trim() === '') {
                         console.error('Received empty response');
                         throw new Error('Server returned empty response');
                     }
-                    
+
                     try {
                         // Try different approaches to extract the ID
                         // 1. Try parsing as JSON
@@ -191,22 +212,22 @@ const EmailEditor = () => {
                                 return jsonObj.id || jsonObj._id;
                             }
                         }
-                        
+
                         // 2. Check if it's a plain string ID (MongoDB ObjectId is 24 chars)
                         if (text.trim().match(/^[a-f0-9]{24}$/i)) {
                             return text.trim();
                         }
-                        
+
                         // 3. Check if it's a quoted string like "60c73c2f7071b02e28a57b5d"
                         if (text.trim().match(/^"[a-f0-9]{24}"$/i)) {
                             return text.trim().replace(/^"|"$/g, '');
                         }
-                        
+
                         // 4. If the text is short and doesn't contain spaces, try using it
                         if (text.length < 100 && !text.includes(' ')) {
                             return text.trim();
                         }
-                        
+
                         console.error('Could not extract valid ID from response:', text);
                         throw new Error('Server response format not recognized');
                     } catch (e: any) {
@@ -218,20 +239,20 @@ const EmailEditor = () => {
                         throw new Error(`Response parsing failed: ${e.message}`);
                     }
                 })
-            .then(id => {
-                if (id) {
+                .then(id => {
+                    if (id) {
                         console.log('Final ID:', id);
-                        
+
                         // Update the email ID in state
                         setEmailInfo(prev => {
                             if (prev) {
-                                return {...prev, id: id.toString()};
+                                return { ...prev, id: id.toString() };
                             }
                             return prev;
                         });
-                        
+
                         // Navigate and show success message
-                    navigate(`/email/${id}`);
+                        navigate(`/email/${id}`);
                         alert('Email saved successfully');
                         return;
                     }
@@ -239,7 +260,7 @@ const EmailEditor = () => {
                 })
                 .catch(error => {
                     console.error('Error saving email:', error);
-                    
+
                     // 尝试重试
                     if (retryCount < maxRetries) {
                         console.log(`Retrying save attempt ${retryCount + 1} of ${maxRetries}...`);
@@ -259,7 +280,7 @@ ${error.stack || '(No stack trace available)'}
                         `;
                         console.error(errorDetails);
                         alert(`Failed to save email after ${maxRetries + 1} attempts. Error: ${error.message}`);
-                        
+
                         // 为了调试，我们将错误信息写入页面的隐藏元素中
                         const debugElement = document.createElement('div');
                         debugElement.style.display = 'none';
@@ -269,7 +290,7 @@ ${error.stack || '(No stack trace available)'}
                     }
                 });
         };
-        
+
         // 开始第一次尝试
         attemptSave();
     };
@@ -282,12 +303,12 @@ ${error.stack || '(No stack trace available)'}
             alert('Subject cannot be empty');
             return;
         }
-        
+
         if (!emailInfo.to || emailInfo.to.length === 0 || !emailInfo.to[0]) {
             alert('Recipient(s) cannot be empty');
             return;
         }
-        
+
         if (!emailInfo.contentTemplateId) {
             alert('Please select a template');
             return;
@@ -295,10 +316,10 @@ ${error.stack || '(No stack trace available)'}
 
         // First save the email
         const saveUrl = `${config.apiUrl}/email/save`;
-        
+
         // 让我们创建一个深拷贝而不仅仅是引用
         const emailToSave = JSON.parse(JSON.stringify(emailInfo));
-        
+
         // 确保没有null值，替换为适当的默认值
         if (!emailToSave.id) emailToSave.id = '';
         if (!emailToSave.createTime) emailToSave.createTime = new Date();
@@ -306,9 +327,9 @@ ${error.stack || '(No stack trace available)'}
         if (!emailToSave.createdBy) emailToSave.createdBy = 'TEST';
         if (!emailToSave.status) emailToSave.status = 'DRAFT';
         if (!Array.isArray(emailToSave.attachments)) emailToSave.attachments = [];
-        
+
         console.log('Saving email data before sending:', JSON.stringify(emailToSave, null, 2));
-        
+
         // 定义一个递归函数用于重试保存
         const attemptSaveAndSend = (retryCount = 0, maxRetries = 1) => {
             fetch(saveUrl, {
@@ -321,12 +342,12 @@ ${error.stack || '(No stack trace available)'}
                 .then(response => {
                     console.log('Save email response status:', response.status);
                     // Headers.entries 在某些 TypeScript 版本可能不支持
-                    const headerObj: {[key: string]: string} = {};
+                    const headerObj: { [key: string]: string } = {};
                     response.headers.forEach((value, key) => {
                         headerObj[key] = value;
                     });
                     console.log('Response headers:', headerObj);
-                    
+
                     if (!response.ok) {
                         throw new Error(`Save failed: ${response.status} ${response.statusText}`);
                     }
@@ -334,13 +355,13 @@ ${error.stack || '(No stack trace available)'}
                 })
                 .then(text => {
                     console.log('Raw response content:', text);
-                    
+
                     // Check if response is empty
                     if (!text || text.trim() === '') {
                         console.error('Received empty response');
                         throw new Error('Server returned empty response');
                     }
-                    
+
                     try {
                         // Try different approaches to extract the ID
                         // 1. Try parsing as JSON
@@ -350,22 +371,22 @@ ${error.stack || '(No stack trace available)'}
                                 return jsonObj.id || jsonObj._id;
                             }
                         }
-                        
+
                         // 2. Check if it's a plain string ID (MongoDB ObjectId is 24 chars)
                         if (text.trim().match(/^[a-f0-9]{24}$/i)) {
                             return text.trim();
                         }
-                        
+
                         // 3. Check if it's a quoted string like "60c73c2f7071b02e28a57b5d"
                         if (text.trim().match(/^"[a-f0-9]{24}"$/i)) {
                             return text.trim().replace(/^"|"$/g, '');
                         }
-                        
+
                         // 4. If the text is short and doesn't contain spaces, try using it
                         if (text.length < 100 && !text.includes(' ')) {
                             return text.trim();
                         }
-                        
+
                         console.error('Could not extract valid ID from response:', text);
                         throw new Error('Server response format not recognized');
                     } catch (e: any) {
@@ -382,11 +403,11 @@ ${error.stack || '(No stack trace available)'}
                         // Update the email ID in state
                         setEmailInfo(prev => {
                             if (prev) {
-                                return {...prev, id: id.toString()};
+                                return { ...prev, id: id.toString() };
                             }
                             return prev;
                         });
-                        
+
                         // 开始尝试发送邮件
                         console.log('Starting to send email, ID:', id);
                         const sendAttempt = (sendRetryCount = 0, sendMaxRetries = 1) => {
@@ -394,30 +415,30 @@ ${error.stack || '(No stack trace available)'}
                             return fetch(sendUrl, {
                                 method: 'POST',
                             })
-                            .then(response => {
-                                console.log('Send email response status:', response.status);
-                                if (!response.ok) {
-                                    throw new Error(`Send failed: ${response.status} ${response.statusText}`);
-                                }
-                                return response.text();
-                            })
-                            .then(result => {
-                                console.log('Send result:', result);
-                                alert(result || 'Email sent successfully');
-                                navigate('/email');
-                            })
-                            .catch(error => {
-                                console.error('Error sending email:', error);
-                                
-                                if (sendRetryCount < sendMaxRetries) {
-                                    console.log(`Retrying send attempt ${sendRetryCount + 1} of ${sendMaxRetries}...`);
-                                    setTimeout(() => sendAttempt(sendRetryCount + 1, sendMaxRetries), 1000);
-                                } else {
-                                    alert(`Failed to send email after ${sendMaxRetries + 1} attempts: ${error.message}`);
-                                }
-                            });
+                                .then(response => {
+                                    console.log('Send email response status:', response.status);
+                                    if (!response.ok) {
+                                        throw new Error(`Send failed: ${response.status} ${response.statusText}`);
+                                    }
+                                    return response.text();
+                                })
+                                .then(result => {
+                                    console.log('Send result:', result);
+                                    alert(result || 'Email sent successfully');
+                                    navigate('/email');
+                                })
+                                .catch(error => {
+                                    console.error('Error sending email:', error);
+
+                                    if (sendRetryCount < sendMaxRetries) {
+                                        console.log(`Retrying send attempt ${sendRetryCount + 1} of ${sendMaxRetries}...`);
+                                        setTimeout(() => sendAttempt(sendRetryCount + 1, sendMaxRetries), 1000);
+                                    } else {
+                                        alert(`Failed to send email after ${sendMaxRetries + 1} attempts: ${error.message}`);
+                                    }
+                                });
                         };
-                        
+
                         // 开始第一次发送尝试
                         return sendAttempt();
                     }
@@ -425,7 +446,7 @@ ${error.stack || '(No stack trace available)'}
                 })
                 .catch(error => {
                     console.error('Error in save and send process:', error);
-                    
+
                     // 尝试重试
                     if (retryCount < maxRetries) {
                         console.log(`Retrying save attempt ${retryCount + 1} of ${maxRetries}...`);
@@ -445,7 +466,7 @@ ${error.stack || '(No stack trace available)'}
                         `;
                         console.error(errorDetails);
                         alert(`Failed to save or send email after ${maxRetries + 1} attempts. Error: ${error.message}`);
-                        
+
                         // 为了调试，我们将错误信息写入页面的隐藏元素中
                         const debugElement = document.createElement('div');
                         debugElement.style.display = 'none';
@@ -455,14 +476,14 @@ ${error.stack || '(No stack trace available)'}
                     }
                 });
         };
-        
+
         // 开始第一次尝试
         attemptSaveAndSend();
     };
 
     const handleTemplateSelect = (templateId: string) => {
         if (!emailInfo || !templateId) return;
-        
+
         try {
             setEmailInfo({ ...emailInfo, contentTemplateId: templateId });
             console.log('Template selected:', templateId);
@@ -474,7 +495,7 @@ ${error.stack || '(No stack trace available)'}
 
     const handleTemplateRemove = () => {
         if (!emailInfo) return;
-        
+
         try {
             setEmailInfo({ ...emailInfo, contentTemplateId: '' });
             console.log('Template removed');
@@ -563,7 +584,13 @@ ${error.stack || '(No stack trace available)'}
                 <label>Create Time</label>
                 <input
                     type="datetime-local"
-                    value={emailInfo.createTime ? emailInfo.createTime.toISOString().slice(0, 16) : ''}
+                    value={
+                        emailInfo.createTime
+                            ? new Date(emailInfo.createTime.getTime() - new Date().getTimezoneOffset() * 60000)
+                                .toISOString()
+                                .slice(0, 16)
+                            : ''
+                    }
                     onChange={(e) => setEmailInfo({ ...emailInfo, createTime: new Date(e.target.value) })}
                     disabled
                     className="disabled-input"
@@ -583,8 +610,18 @@ ${error.stack || '(No stack trace available)'}
                 <label>Sent Time</label>
                 <input
                     type="datetime-local"
-                    value={emailInfo.sentTime ? emailInfo.sentTime.toISOString().slice(0, 16) : ''}
-                    onChange={(e) => setEmailInfo({ ...emailInfo, sentTime: new Date(e.target.value) })}
+                    value={
+                        emailInfo.sentTime
+                            ? new Date(emailInfo.sentTime.getTime() - new Date().getTimezoneOffset() * 60000)
+                                .toISOString()
+                                .slice(0, 16)
+                            : ''
+                    }
+                    onChange={(e) => {
+                        const newSentTime = new Date(e.target.value);
+                        console.log('New Sent Time:', newSentTime); // 调试日志
+                        setEmailInfo({ ...emailInfo, sentTime: newSentTime });
+                    }}
                 />
             </div>
             <div className="editor-section">
@@ -611,20 +648,20 @@ ${error.stack || '(No stack trace available)'}
                     ) : emailInfo.contentTemplateId ? (
                         <div className="selected-template">
                             <span>
-                                {Array.isArray(templates) && templates.length > 0 
-                                    ? templates.find((t) => t && t.id === emailInfo.contentTemplateId)?.filename || 'Template not found' 
+                                {Array.isArray(templates) && templates.length > 0
+                                    ? templates.find((t) => t && t.id === emailInfo.contentTemplateId)?.filename || 'Template not found'
                                     : 'Template not found'}
                             </span>
                             <button onClick={handleTemplateRemove}>Remove</button>
                         </div>
                     ) : (
                         <div style={{ width: '100%' }}>
-                            <select 
+                            <select
                                 onChange={(e) => e.target.value && handleTemplateSelect(e.target.value)}
                                 value={emailInfo.contentTemplateId || ''}
                                 style={{ width: '100%' }}
                             >
-                            <option value="">Select a template</option>
+                                <option value="">Select a template</option>
                                 {Array.isArray(templates) && templates.length > 0 ? (
                                     templates.map((t) => (
                                         t && t.id ? <option key={t.id} value={t.id}>{t.filename || 'Unnamed template'}</option> : null
@@ -653,13 +690,13 @@ ${error.stack || '(No stack trace available)'}
                     <button onClick={handleFileSelect} disabled={isUploading}>
                         {isUploading ? 'Uploading...' : 'Add Attachments'}
                     </button>
-                    
+
                     {isUploading && (
                         <div className="upload-progress">
                             <div className="progress-bar" style={{ width: `${uploadProgress}%` }}></div>
                         </div>
                     )}
-                    
+
                     {emailInfo.attachments && emailInfo.attachments.length > 0 && (
                         <div className="attachments-list">
                             {emailInfo.attachments.map((attachment, index) => (

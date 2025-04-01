@@ -2,6 +2,7 @@ package com.citi.custody.service;
 
 import com.citi.custody.dao.EmailDao;
 import com.citi.custody.entity.Email;
+import com.citi.custody.util.SystemUserUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,45 +25,45 @@ public class EmailService {
     @Transactional
     public String saveEmail(Email email) {
         logger.info("Saving email: {}", email);
-        
+
         try {
             // Validate email object
             if (email == null) {
                 logger.error("Cannot save null email object");
                 throw new IllegalArgumentException("Email object cannot be null");
             }
-            
+
             // Validate required fields
             if (StringUtils.isBlank(email.getEmailName())) {
                 logger.error("Email name is required");
                 throw new IllegalArgumentException("Email name is required");
             }
-            
+
             if (StringUtils.isBlank(email.getContentTemplateId())) {
                 logger.error("Content template ID is required");
                 throw new IllegalArgumentException("Content template ID is required");
             }
-            
-            // 确保ID字段为空或null时，MongoDB会自动生成
-            if (StringUtils.isEmpty(email.getId())) {
-                email.setId(null); // 显式设置为null让MongoDB生成ID
+
+            // If email ID is null, MongoDB will generate a new ID
+            if (StringUtils.isBlank(email.getId())) {
+                email.setId(null);  // MongoDB will generate a new ID
                 logger.debug("ID is empty, MongoDB will generate a new ID");
             }
-            
+
             email.setModifiedTime(new Date());
-            email.setCreatedBy("TEST");
-            
+            email.setCreatedBy(SystemUserUtil.getCurrentUsername());
+
             if (email.getId() == null) {
                 email.setCreateTime(new Date());
                 logger.debug("Creating new email with subject: {}", email.getEmailName());
             } else {
                 logger.debug("Updating existing email with ID: {}", email.getId());
             }
-            
+
             logger.debug("Calling emailDao.saveEmail with email: {}", email);
-            Email savedEmail = emailDao.saveEmail(email);
+            Email savedEmail = emailDao.save(email);
             logger.debug("Result from emailDao.saveEmail: {}", savedEmail);
-            
+
             if (savedEmail != null) {
                 String savedId = savedEmail.getId();
                 if (StringUtils.isNotBlank(savedId)) {
@@ -84,7 +85,7 @@ public class EmailService {
 
     public Page<Email> getEmailsList(String name, Pageable pageable) {
         logger.debug("Getting emails list with name filter: {}, page: {}, size: {}", 
-                    name, pageable.getPageNumber(), pageable.getPageSize());
+            name, pageable.getPageNumber(), pageable.getPageSize());
         return emailDao.findAllByNameSafely(name, pageable);
     }
 
@@ -104,25 +105,25 @@ public class EmailService {
                 logger.error("Cannot delete email with null or empty ID");
                 return false;
             }
-            
-            // 检查邮件是否存在
+
+            // Check if email exists
             Email email = getEmailById(id);
             if (email == null) {
                 logger.warn("Email not found with ID: {}", id);
                 return false;
             }
-            
-            // 如果邮件已发送，不允许删除
+
+            // Check if email has been sent
             if ("SENT".equals(email.getStatus())) {
                 logger.warn("Cannot delete email that has been sent, ID: {}", id);
                 return false;
             }
-            
+
             emailDao.deleteById(id);
             logger.info("Email deleted successfully, ID: {}", id);
             return true;
         } catch (Exception e) {
-            logger.error("Error deleting email with ID {}: {}", id, e.getMessage(), e);
+            logger.error("Error deleting email with ID: {}", id, e);
             return false;
         }
     }

@@ -1,6 +1,7 @@
 package com.citi.custody.service;
 
 import com.citi.custody.entity.TemplateInfo;
+import com.citi.custody.util.SystemUserUtil;
 import com.mongodb.client.gridfs.model.GridFSFile;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
@@ -14,7 +15,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.gridfs.GridFsTemplate;
+import org.springframework.data.mongodb.gridfs.GridFsTemplate;;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -32,8 +33,7 @@ public class TemplateService {
     private GridFsTemplate gridFsTemplate;
 
     public void storeTemplate(MultipartFile file, String objectId) throws IOException {
-        
-        if(StringUtils.isNotEmpty(objectId) && isTemplateExist(objectId)) {
+        if (StringUtils.isNotEmpty(objectId) && isTemplateExist(objectId)) {
             // Delete the existing file
             gridFsTemplate.delete(new Query(Criteria.where("_id").is(objectId)));
         }
@@ -42,7 +42,7 @@ public class TemplateService {
             String originalFileName = file.getOriginalFilename();
             Document metadata = generateMetaData(originalFileName);
             ObjectId newObjectId = gridFsTemplate.store(inputStream, originalFileName, file.getContentType(), metadata);
-            log.info("Successfully uploaded file: {}, id: {}", originalFileName, newObjectId.toHexString());
+            log.info("Successfully uploaded file: {} (id: {})", originalFileName, newObjectId.toHexString());
         }
 
     }
@@ -52,7 +52,7 @@ public class TemplateService {
         // Create metadata
         Document metadata = new Document();
 
-        metadata.put("updateBy", "TEST");
+        metadata.put("updateBy", SystemUserUtil.getCurrentUsername());
         metadata.put("updateTime", new Date());
         metadata.put("filename", fileName);
         return metadata;
@@ -60,7 +60,7 @@ public class TemplateService {
 
     private boolean isTemplateExist(String objectId) {
         GridFSFile existingFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(objectId)));
-        if (existingFile != null){
+        if (existingFile != null) {
             return true;
         }
         return false;
@@ -75,7 +75,6 @@ public class TemplateService {
         return new InputStreamResource(inputStream);
     }
 
-    // 获取模板内容
     private String getTemplateContent(String objectId) {
         try {
             GridFSFile gridFSFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(objectId)));
@@ -91,11 +90,11 @@ public class TemplateService {
     }
 
     public TemplateInfo setTemplateInfo(GridFSFile file) {
-        if(file != null) {
+        if (file != null) {
             Document metadata = file.getMetadata();
             TemplateInfo templateInfo = new TemplateInfo();
             templateInfo.setId(file.getObjectId().toHexString());
-            if(metadata != null){
+            if (metadata != null) {
                 templateInfo.setFilename(metadata.getString("filename"));
                 templateInfo.setUpdateBy(metadata.getString("updateBy"));
                 templateInfo.setUpdateTime((Date) metadata.get("updateTime"));
@@ -110,13 +109,13 @@ public class TemplateService {
 
     public Page<TemplateInfo> getTemplates(String name, Pageable pageable) {
         List<TemplateInfo> templates = new ArrayList<>();
-        Query query = new Query(Criteria.where("metadata.updateBy").is("TEST"));
+        Query query = new Query(Criteria.where("metadata.updateBy").is(SystemUserUtil.getCurrentUsername()));
         if (name != null && !name.isEmpty()) {
             query.addCriteria(Criteria.where("metadata.filename").regex(name, "i"));
         }
         query.with(pageable);
         List<GridFSFile> files = gridFsTemplate.find(query).into(new ArrayList<>());
-        
+
         for (GridFSFile file : files) {
             TemplateInfo templateInfo = setTemplateInfo(file);
             if (templateInfo != null) {
@@ -139,7 +138,7 @@ public class TemplateService {
 
         for (GridFSFile file : files) {
             TemplateInfo templateInfo = setTemplateInfo(file);
-            if(templateInfo != null){
+            if (templateInfo != null) {
                 templates.add(templateInfo);
             }
         }
