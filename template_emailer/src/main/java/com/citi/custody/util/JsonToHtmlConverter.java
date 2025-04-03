@@ -23,22 +23,69 @@ public class JsonToHtmlConverter {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode rootNode = objectMapper.readTree(json);
 
-            // Start building the HTML
+            // Start building the HTML with DOCTYPE and namespace declarations for Outlook
             StringBuilder htmlBuilder = new StringBuilder();
-            htmlBuilder.append("<html><head><title>Email Template</title></head><body>");
+            htmlBuilder.append("<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">");
+            htmlBuilder.append("<html xmlns=\"http://www.w3.org/1999/xhtml\">");
+            htmlBuilder.append("<head>");
+            htmlBuilder.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />");
+            htmlBuilder.append("<title>Email Template</title>");
+            
+            // CSS for better email client compatibility
+            htmlBuilder.append("<style type=\"text/css\">");
+            htmlBuilder.append("body { margin: 0; padding: 0; }");
+            htmlBuilder.append("img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }");
+            htmlBuilder.append("table { border-collapse: collapse !important; }");
+            htmlBuilder.append("</style>");
+            
+            htmlBuilder.append("</head>");
+            htmlBuilder.append("<body>");
 
             // Parse the "body" node
             JsonNode bodyNode = rootNode.get("body");
             if (bodyNode != null) {
                 JsonNode rows = bodyNode.get("rows");
                 if (rows != null && rows.isArray()) {
+                    // Create main container table
+                    htmlBuilder.append("<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">");
+                    
                     for (JsonNode row : rows) {
-                        htmlBuilder.append("<div style='margin: 10px;'>"); // Row container
+                        // Row as table row
+                        htmlBuilder.append("<tr><td>");
+                        
+                        // Table for this row
+                        htmlBuilder.append("<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr>");
 
                         JsonNode columns = row.get("columns");
                         if (columns != null && columns.isArray()) {
-                            for (JsonNode column : columns) {
-                                htmlBuilder.append("<div style='display: inline-block; margin: 5px;'>"); // Column container
+                            int totalColumns = columns.size();
+                            
+                            // Determine column widths
+                            int[] ratios = new int[totalColumns];
+                            int totalRatio = 0;
+                            boolean hasRatios = false;
+                            
+                            // First check if any columns have ratio specified
+                            for (int i = 0; i < totalColumns; i++) {
+                                JsonNode column = columns.get(i);
+                                if (column.has("ratio") && column.get("ratio").isInt()) {
+                                    hasRatios = true;
+                                    ratios[i] = column.get("ratio").asInt();
+                                    totalRatio += ratios[i];
+                                } else {
+                                    ratios[i] = 1; // Default ratio
+                                    totalRatio += 1;
+                                }
+                            }
+                            
+                            for (int i = 0; i < totalColumns; i++) {
+                                JsonNode column = columns.get(i);
+                                
+                                // Calculate width percentage
+                                float widthPct = (ratios[i] * 100.0f) / totalRatio;
+                                
+                                // Column as table cell
+                                htmlBuilder.append("<td width=\"").append(widthPct).append("%\" valign=\"top\" style=\"padding:10px\">");
 
                                 JsonNode contents = column.get("contents");
                                 if (contents != null && contents.isArray()) {
@@ -59,11 +106,14 @@ public class JsonToHtmlConverter {
                                         }
 
                                         if ("text".equals(type)) {
-                                            htmlBuilder.append("<p>").append(text).append("</p>");
+                                            htmlBuilder.append("<p style=\"margin:0 0 10px 0;\">").append(text).append("</p>");
                                         } else if ("heading".equals(type)) {
-                                            htmlBuilder.append("<h1>").append(text).append("</h1>");
+                                            htmlBuilder.append("<h1 style=\"margin:0 0 10px 0;font-size:24px;\">").append(text).append("</h1>");
                                         } else if ("button".equals(type)) {
-                                            htmlBuilder.append("<button>").append(text).append("</button>");
+                                            // Button as a styled link for better compatibility
+                                            htmlBuilder.append("<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\" style=\"margin:10px 0;\"><tr><td align=\"center\" bgcolor=\"#337ab7\" style=\"padding:10px 15px;border-radius:4px;\">");
+                                            htmlBuilder.append("<a href=\"#\" target=\"_blank\" style=\"color:#ffffff;text-decoration:none;display:block;font-weight:bold;\">").append(text).append("</a>");
+                                            htmlBuilder.append("</td></tr></table>");
                                         } else if ("image".equals(type)) {
                                             // 处理图片类型
                                             String imageUrl = "";
@@ -110,23 +160,29 @@ public class JsonToHtmlConverter {
                                                 }
                                                 
                                                 String altText = text.isEmpty() ? "Image" : text;
+                                                // Wrap image in a table for better Outlook rendering
+                                                htmlBuilder.append("<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\"><tr><td>");
                                                 htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
-                                                    .append(altText).append("\" style=\"max-width:100%;height:auto;\"/>");
+                                                    .append(altText).append("\" width=\"100%\" style=\"display:block; width:100%; max-width:100%; height:auto;\"/>");
+                                                htmlBuilder.append("</td></tr></table>");
                                             }
                                         }
                                     }
                                 }
 
-                                htmlBuilder.append("</div>"); // Close column container
+                                htmlBuilder.append("</td>"); // Close column cell
                             }
                         }
 
-                        htmlBuilder.append("</div>"); // Close row container
+                        htmlBuilder.append("</tr></table>"); // Close row table
+                        htmlBuilder.append("</td></tr>"); // Close row container
                     }
+                    
+                    htmlBuilder.append("</table>"); // Close main container table
                 }
             } else {
                 // 如果没有正确的body结构，添加默认内容
-                htmlBuilder.append("<div><p>").append(json).append("</p></div>");
+                htmlBuilder.append("<table width=\"100%\"><tr><td>").append(json).append("</td></tr></table>");
             }
 
             htmlBuilder.append("</body></html>");

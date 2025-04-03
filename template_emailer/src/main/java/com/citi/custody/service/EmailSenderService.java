@@ -131,6 +131,12 @@ public class EmailSenderService {
                     email.getId(), e.getMessage(), e);
                 content = "<html><body><p>Error parsing template: " + e.getMessage() + "</p></body></html>";
             }
+            
+            // Add additional headers for Outlook compatibility
+            MimeMessage mimeMessage = helper.getMimeMessage();
+            mimeMessage.addHeader("X-Unsent", "1");
+            mimeMessage.addHeader("X-Priority", "3");
+            
             helper.setText(content, true); // true indicates HTML content
             
             // 处理模板中的内嵌图片
@@ -331,7 +337,7 @@ public class EmailSenderService {
                             String mimeType = determineMimeType(imageFile.getName());
                             logger.info("图片 {} 的MIME类型: {}", imageFile.getName(), mimeType);
                             
-                            // 添加内联图片附件，设置Content-ID
+                            // 添加内联图片附件，设置Content-ID - 使用不带尖括号的ContentId，保持与HTML中相同
                             helper.addInline(contentId, resource, mimeType);
                             
                             logger.info("成功添加内嵌图片: 文件路径={}, contentId={}, 文件大小={}KB, 文件类型={}", 
