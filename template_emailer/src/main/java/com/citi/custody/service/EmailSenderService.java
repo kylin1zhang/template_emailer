@@ -300,11 +300,11 @@ public class EmailSenderService {
                     // 处理HTML类型的节点，查找其中的图片标签
                     String htmlContent = "";
                     if (node.has("values") && !node.get("values").isNull()) {
-                        JsonNode values = node.get("values");
-                        if (values.has("html") && !values.get("html").isNull()) {
-                            htmlContent = values.get("html").asText();
-                        } else if (values.has("text") && !values.get("text").isNull()) {
-                            htmlContent = values.get("text").asText();
+                        JsonNode htmlValues = node.get("values");
+                        if (htmlValues.has("html") && !htmlValues.get("html").isNull()) {
+                            htmlContent = htmlValues.get("html").asText();
+                        } else if (htmlValues.has("text") && !htmlValues.get("text").isNull()) {
+                            htmlContent = htmlValues.get("text").asText();
                         }
                     }
                     
@@ -319,30 +319,30 @@ public class EmailSenderService {
                         java.util.regex.Matcher matcher = pattern.matcher(htmlContent);
                         
                         while (matcher.find()) {
-                            String imageUrl = matcher.group(1);
-                            logger.info("Found image URL in HTML content: {}", imageUrl);
+                            String htmlImageUrl = matcher.group(1);
+                            logger.info("Found image URL in HTML content: {}", htmlImageUrl);
                             
                             // 只处理非HTTP和HTTPS的本地图片
-                            if (imageUrl != null && !imageUrl.isEmpty() && 
-                                !imageUrl.startsWith("http://") && !imageUrl.startsWith("https://") && !imageUrl.startsWith("data:")) {
+                            if (htmlImageUrl != null && !htmlImageUrl.isEmpty() && 
+                                !htmlImageUrl.startsWith("http://") && !htmlImageUrl.startsWith("https://") && !htmlImageUrl.startsWith("data:")) {
                                 
                                 // 提取图片文件名
-                                String imgFileName = imageUrl;
-                                if (imageUrl.contains("/")) {
-                                    imgFileName = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
+                                String htmlImgFileName = htmlImageUrl;
+                                if (htmlImageUrl.contains("/")) {
+                                    htmlImgFileName = htmlImageUrl.substring(htmlImageUrl.lastIndexOf("/") + 1);
                                 }
                                 
                                 // 保持与JsonToHtmlConverter中相同的contentId生成逻辑
-                                String contentId = imgFileName.replaceAll("[^a-zA-Z0-9.]", "_");
-                                if (contentId.contains(".")) {
-                                    contentId = contentId.substring(0, contentId.lastIndexOf('.'));
+                                String htmlContentId = htmlImgFileName.replaceAll("[^a-zA-Z0-9.]", "_");
+                                if (htmlContentId.contains(".")) {
+                                    htmlContentId = htmlContentId.substring(0, htmlContentId.lastIndexOf('.'));
                                 }
-                                contentId = contentId + "_img";
+                                htmlContentId = htmlContentId + "_img";
                                 
-                                logger.info("处理HTML中的图片: {} -> contentId: {}", imgFileName, contentId);
+                                logger.info("处理HTML中的图片: {} -> contentId: {}", htmlImgFileName, htmlContentId);
                                 
                                 // 使用与常规图片节点相同的逻辑处理图片文件
-                                processImageFile(imgFileName, imageUrl, contentId, helper, imageResourcePath);
+                                processImageFile(htmlImgFileName, htmlImageUrl, htmlContentId, helper, imageResourcePath);
                             }
                         }
                     }
