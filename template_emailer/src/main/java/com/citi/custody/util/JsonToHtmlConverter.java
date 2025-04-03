@@ -25,15 +25,56 @@ public class JsonToHtmlConverter {
 
             // Start building the HTML
             StringBuilder htmlBuilder = new StringBuilder();
-            htmlBuilder.append("<html><head><title>Email Template</title></head><body>");
+            htmlBuilder.append("<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">");
+            htmlBuilder.append("<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:o=\"urn:schemas-microsoft-com:office:office\">");
+            
+            // Add head with meta tags and styles for Outlook compatibility
+            htmlBuilder.append("<head>");
+            htmlBuilder.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
+            htmlBuilder.append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
+            htmlBuilder.append("<meta name=\"format-detection\" content=\"telephone=no\">");
+            htmlBuilder.append("<!--[if mso]>");
+            htmlBuilder.append("<xml>");
+            htmlBuilder.append("<o:OfficeDocumentSettings>");
+            htmlBuilder.append("<o:AllowPNG/>");
+            htmlBuilder.append("<o:PixelsPerInch>96</o:PixelsPerInch>");
+            htmlBuilder.append("</o:OfficeDocumentSettings>");
+            htmlBuilder.append("</xml>");
+            htmlBuilder.append("<![endif]-->");
+            htmlBuilder.append("<style type=\"text/css\">");
+            // Reset styles
+            htmlBuilder.append("body, p, h1, h2, h3, h4, h5, h6, table, td {margin: 0; padding: 0;}");
+            // Default font
+            htmlBuilder.append("body {font-family: Arial, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;}");
+            // Default table styles
+            htmlBuilder.append("table, td {border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt;}");
+            // Default image styles
+            htmlBuilder.append("img {-ms-interpolation-mode: bicubic; border: 0; display: block; height: auto; line-height: 100%; outline: none; text-decoration: none;}");
+            htmlBuilder.append("</style>");
+            htmlBuilder.append("<title>Email Template</title>");
+            htmlBuilder.append("</head>");
+            
+            htmlBuilder.append("<body style=\"margin: 0; padding: 0; background-color: #f7f7f7;\">");
+            htmlBuilder.append("<div style=\"background-color: #f7f7f7; max-width: 600px; margin: 0 auto;\">");
+            htmlBuilder.append("<!--[if mso]>");
+            htmlBuilder.append("<table align=\"center\" role=\"presentation\" width=\"600\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\">");
+            htmlBuilder.append("<tr><td>");
+            htmlBuilder.append("<![endif]-->");
 
             // Parse the "body" node
             JsonNode bodyNode = rootNode.get("body");
             if (bodyNode != null) {
                 JsonNode rows = bodyNode.get("rows");
                 if (rows != null && rows.isArray()) {
+                    // Begin email table container for Outlook compatibility
+                    htmlBuilder.append("<table width='100%' border='0' cellspacing='0' cellpadding='0' style='border-collapse: collapse;'>");
+                    
                     for (JsonNode row : rows) {
-                        htmlBuilder.append("<div style='display: flex; flex-wrap: wrap; margin: 10px; width: 100%;'>"); // Row container as flex
+                        // Each row becomes a table row
+                        htmlBuilder.append("<tr><td style='padding: 10px;'>");
+                        
+                        // Create a nested table for columns
+                        htmlBuilder.append("<table width='100%' border='0' cellspacing='0' cellpadding='0' style='border-collapse: collapse;'><tr>");
 
                         JsonNode columns = row.get("columns");
                         if (columns != null && columns.isArray()) {
@@ -67,12 +108,10 @@ public class JsonToHtmlConverter {
                                 int ratio = columnRatios[i];
                                 float widthPercentage = (ratio * 100.0f) / totalRatio;
                                 
-                                // Create column with calculated width
-                                htmlBuilder.append("<div style='flex: ")
-                                    .append(ratio)
-                                    .append("; min-width: ")
+                                // Create column as table cell with calculated width
+                                htmlBuilder.append("<td valign='top' style='padding: 10px; width: ")
                                     .append(widthPercentage)
-                                    .append("%; padding: 10px; box-sizing: border-box;'>"); // Column container with flex ratio
+                                    .append("%;'>");
 
                                 JsonNode contents = column.get("contents");
                                 if (contents != null && contents.isArray()) {
@@ -93,11 +132,23 @@ public class JsonToHtmlConverter {
                                         }
 
                                         if ("text".equals(type)) {
-                                            htmlBuilder.append("<p style='width: 100%;'>").append(text).append("</p>");
+                                            htmlBuilder.append("<p style='width: 100%; margin: 0 0 10px 0;'>").append(text).append("</p>");
                                         } else if ("heading".equals(type)) {
-                                            htmlBuilder.append("<h1 style='width: 100%;'>").append(text).append("</h1>");
+                                            htmlBuilder.append("<h1 style='width: 100%; margin: 0 0 10px 0;'>").append(text).append("</h1>");
                                         } else if ("button".equals(type)) {
-                                            htmlBuilder.append("<button style='width: 100%;'>").append(text).append("</button>");
+                                            // Use MSO conditional comments for better Outlook button rendering
+                                            htmlBuilder.append("<!--[if mso]>")
+                                                    .append("<v:roundrect xmlns:v='urn:schemas-microsoft-com:vml' xmlns:w='urn:schemas-microsoft-com:office:word' style='height:36px;v-text-anchor:middle;width:150px;' arcsize='5%' strokecolor='#2e6da4' fillcolor='#337ab7'>")
+                                                    .append("<w:anchorlock/>")
+                                                    .append("<center style='color:#ffffff;font-family:sans-serif;font-size:13px;font-weight:bold;'>").append(text).append("</center>")
+                                                    .append("</v:roundrect>")
+                                                    .append("<![endif]-->")
+                                                    .append("<!--[if !mso]><!-->")
+                                                    .append("<table cellspacing='0' cellpadding='0' style='width:auto;margin:0 auto;'><tr>")
+                                                    .append("<td style='border-radius:4px;background-color:#337ab7;padding:8px 16px;'>")
+                                                    .append("<a href='#' style='background-color:#337ab7;color:#ffffff;font-family:sans-serif;font-size:13px;font-weight:bold;text-decoration:none;display:inline-block;'>").append(text).append("</a>")
+                                                    .append("</td></tr></table>")
+                                                    .append("<!--<![endif]-->");
                                         } else if ("image".equals(type)) {
                                             // Process image type
                                             String imageUrl = "";
@@ -144,25 +195,34 @@ public class JsonToHtmlConverter {
                                                 }
                                                 
                                                 String altText = text.isEmpty() ? "Image" : text;
+                                                // Ensure proper image sizing for Outlook with width attribute
                                                 htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
-                                                    .append(altText).append("\" style=\"max-width:100%;height:auto;\"/>");
+                                                    .append(altText).append("\" width=\"100%\" style=\"display:block;width:100%;max-width:100%;height:auto;\"/>");
                                             }
                                         }
                                     }
                                 }
 
-                                htmlBuilder.append("</div>"); // Close column container
+                                htmlBuilder.append("</td>"); // Close column cell
                             }
                         }
 
-                        htmlBuilder.append("</div>"); // Close row container
+                        htmlBuilder.append("</tr></table>"); // Close column table
+                        htmlBuilder.append("</td></tr>"); // Close row
                     }
+                    
+                    htmlBuilder.append("</table>"); // Close email container table
                 }
             } else {
                 // If there is no correct body structure, add default content
-                htmlBuilder.append("<div><p>").append(json).append("</p></div>");
+                htmlBuilder.append("<table width='100%'><tr><td>").append(json).append("</td></tr></table>");
             }
 
+            htmlBuilder.append("<!--[if mso]>");
+            htmlBuilder.append("</td></tr>");
+            htmlBuilder.append("</table>");
+            htmlBuilder.append("<![endif]-->");
+            htmlBuilder.append("</div>");
             htmlBuilder.append("</body></html>");
             return htmlBuilder.toString();
         } catch (Exception e) {

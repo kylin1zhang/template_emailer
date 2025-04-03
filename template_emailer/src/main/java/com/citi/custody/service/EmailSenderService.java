@@ -131,6 +131,12 @@ public class EmailSenderService {
                     email.getId(), e.getMessage(), e);
                 content = "<html><body><p>Error parsing template: " + e.getMessage() + "</p></body></html>";
             }
+            
+            // Set content type with VML support for Outlook
+            MimeMessage mimeMessage = helper.getMimeMessage();
+            mimeMessage.setHeader("Content-Type", "text/html; charset=utf-8");
+            mimeMessage.setHeader("X-MimeOLE", "Produced By Microsoft MimeOLE V6.00.2900.3350");
+            mimeMessage.setHeader("X-MSMail-Priority", "Normal");
             helper.setText(content, true); // true indicates HTML content
             
             // 处理模板中的内嵌图片
@@ -331,11 +337,18 @@ public class EmailSenderService {
                             String mimeType = determineMimeType(imageFile.getName());
                             logger.info("MIME type for image {}: {}", imageFile.getName(), mimeType);
                             
+                            // For Outlook compatibility, make sure content ID format is correct
+                            String outlookCompatibleContentId = contentId;
+                            if (!outlookCompatibleContentId.startsWith("<") && !outlookCompatibleContentId.endsWith(">")) {
+                                logger.debug("Adding angle brackets to content ID for Outlook compatibility");
+                                outlookCompatibleContentId = "<" + contentId + ">";
+                            }
+                            
                             // 添加内联图片附件，设置Content-ID
-                            helper.addInline(contentId, resource, mimeType);
+                            helper.addInline(outlookCompatibleContentId, resource, mimeType);
                             
                             logger.info("Successfully added inline image: FilePath={}, contentId={}, FileSize={}KB, FileType={}", 
-                                imageFile.getAbsolutePath(), contentId, imageFile.length()/1024, 
+                                imageFile.getAbsolutePath(), outlookCompatibleContentId, imageFile.length()/1024, 
                                 getFileExtension(imageFile.getName()));
                         } else {
                             logger.error("Could not find image file: {}. Locations checked: absolute path, {}, {}", 
