@@ -25,38 +25,17 @@ public class JsonToHtmlConverter {
 
             // Start building the HTML with DOCTYPE and namespace declarations for Outlook
             StringBuilder htmlBuilder = new StringBuilder();
-            htmlBuilder.append("<html xmlns=\"http://www.w3.org/1999/xhtml\">");
+            htmlBuilder.append("<html>");
             htmlBuilder.append("<head>");
             htmlBuilder.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />");
             htmlBuilder.append("<title>Email Template</title>");
             
-            // CSS for better email client compatibility
+            // 简化CSS，只保留最基本的样式
             htmlBuilder.append("<style type=\"text/css\">");
             htmlBuilder.append("body { margin: 0; padding: 0; }");
-            htmlBuilder.append("img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }");
-            htmlBuilder.append("table { border-collapse: collapse !important; }");
-            
-            // 添加针对Outlook的特殊CSS
-            htmlBuilder.append("@media screen and (-webkit-min-device-pixel-ratio:0) {");
-            htmlBuilder.append("  .img-fix { display: inline !important; }");
-            htmlBuilder.append("}");
-            
-            // 专门处理Outlook的图片对齐问题
-            htmlBuilder.append(".img-left { text-align: left !important; }");
-            htmlBuilder.append(".img-center { text-align: center !important; }");
-            htmlBuilder.append(".img-right { text-align: right !important; }");
-            
+            htmlBuilder.append("img { border: 0; height: auto; outline: none; }");
+            htmlBuilder.append("table { border-collapse: collapse; }");
             htmlBuilder.append("</style>");
-            
-            // 添加Outlook专用的条件注释
-            htmlBuilder.append("<!--[if gte mso 9]>");
-            htmlBuilder.append("<style type=\"text/css\">");
-            htmlBuilder.append("table { border-collapse: collapse !important; }");
-            htmlBuilder.append(".img-left { margin-left: 0 !important; margin-right: auto !important; }");
-            htmlBuilder.append(".img-center { margin-left: auto !important; margin-right: auto !important; }");
-            htmlBuilder.append(".img-right { margin-left: auto !important; margin-right: 0 !important; }");
-            htmlBuilder.append("</style>");
-            htmlBuilder.append("<![endif]-->");
             
             htmlBuilder.append("</head>");
             htmlBuilder.append("<body>");
@@ -239,29 +218,33 @@ public class JsonToHtmlConverter {
                                                 
                                                 String altText = text.isEmpty() ? "Image" : text;
                                                 
-                                                // 特殊处理图片对齐方式 - 使用更兼容的方法
+                                                // 特殊处理图片对齐方式 - 使用最简单有效的方法
                                                 if ("left".equals(alignment)) {
-                                                    // 左对齐 - 使用最兼容的方式组合
-                                                    htmlBuilder.append("<div class=\"img-left\" style=\"text-align:left; margin-bottom:10px;\">");
+                                                    // 左对齐 - 使用表格方式
+                                                    htmlBuilder.append("<table width=\"100%\" border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr>");
+                                                    htmlBuilder.append("<td align=\"left\">");
                                                     htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
-                                                        .append(altText).append("\" align=\"left\" hspace=\"0\" vspace=\"0\" style=\"display:block; max-width:100%; height:auto; margin:0; text-align:left;\" class=\"img-fix\" />");
-                                                    // 添加一个清除浮动
-                                                    htmlBuilder.append("<div style=\"clear:both; height:0; line-height:0; font-size:0;\">&nbsp;</div>");
-                                                    htmlBuilder.append("</div>");
+                                                        .append(altText).append("\" style=\"max-width:100%; height:auto;\"/>");
+                                                    htmlBuilder.append("</td>");
+                                                    htmlBuilder.append("<td></td>"); // 空单元格占位
+                                                    htmlBuilder.append("</tr></table>");
                                                 } else if ("right".equals(alignment)) {
-                                                    // 右对齐 - 使用最兼容的方式组合
-                                                    htmlBuilder.append("<div class=\"img-right\" style=\"text-align:right; margin-bottom:10px;\">");
+                                                    // 右对齐 - 使用表格方式
+                                                    htmlBuilder.append("<table width=\"100%\" border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr>");
+                                                    htmlBuilder.append("<td></td>"); // 空单元格占位
+                                                    htmlBuilder.append("<td align=\"right\">");
                                                     htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
-                                                        .append(altText).append("\" align=\"right\" hspace=\"0\" vspace=\"0\" style=\"display:block; max-width:100%; height:auto; margin:0; float:right; text-align:right;\" class=\"img-fix\" />");
-                                                    // 添加一个清除浮动
-                                                    htmlBuilder.append("<div style=\"clear:both; height:0; line-height:0; font-size:0;\">&nbsp;</div>");
-                                                    htmlBuilder.append("</div>");
+                                                        .append(altText).append("\" style=\"max-width:100%; height:auto;\"/>");
+                                                    htmlBuilder.append("</td>");
+                                                    htmlBuilder.append("</tr></table>");
                                                 } else {
-                                                    // 居中对齐 - 使用多重技术确保兼容性
-                                                    htmlBuilder.append("<div class=\"img-center\" style=\"text-align:center; margin-bottom:10px;\">");
+                                                    // 居中对齐 - 使用表格方式
+                                                    htmlBuilder.append("<table width=\"100%\" border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr>");
+                                                    htmlBuilder.append("<td align=\"center\">");
                                                     htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
-                                                        .append(altText).append("\" align=\"center\" hspace=\"0\" vspace=\"0\" style=\"display:block; max-width:100%; height:auto; margin:0 auto; text-align:center;\" class=\"img-fix\" />");
-                                                    htmlBuilder.append("</div>");
+                                                        .append(altText).append("\" style=\"max-width:100%; height:auto;\"/>");
+                                                    htmlBuilder.append("</td>");
+                                                    htmlBuilder.append("</tr></table>");
                                                 }
                                             }
                                         } else if ("html".equals(type)) {

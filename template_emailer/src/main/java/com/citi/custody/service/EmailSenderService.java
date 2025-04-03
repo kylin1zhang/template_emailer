@@ -155,17 +155,9 @@ public class EmailSenderService {
             }
             
             // 设置文本内容，必须在图片处理后进行
-            // 添加优先级和格式头信息，以确保HTML内容正确显示
-            MimeMessage mimeMessage = helper.getMimeMessage();
-            
-            // 设置优先级为普通
-            mimeMessage.addHeader("X-Priority", "3");
-            
-            // 确保收件人知道这是HTML格式的邮件
-            mimeMessage.addHeader("Content-Type", "text/html; charset=UTF-8");
-            
-            // 设置正文内容，第二个参数true表示这是HTML内容
-            helper.setText(content, true);
+            // 删除不必要的头信息，这些可能导致MIME分隔符显示在邮件内容中
+            // 直接使用helper的setText方法，不添加额外头信息
+            helper.setText(content, true); // true indicates HTML content
 
             // Add attachments if any
             if (email.getAttachments() != null && !email.getAttachments().isEmpty()) {
@@ -285,15 +277,11 @@ public class EmailSenderService {
                         imgFileName = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
                     }
                     
-                    // 使用与 JsonToHtmlConverter 完全相同的方式生成 Content-ID
+                    // 简化ContentId生成逻辑
                     String contentId = imgFileName.replaceAll("[^a-zA-Z0-9.]", "_");
-                    
-                    // 注意：确保contentId不包含扩展名的点号，与JsonToHtmlConverter保持一致
                     if (contentId.contains(".")) {
                         contentId = contentId.substring(0, contentId.lastIndexOf('.'));
                     }
-                    
-                    // 添加固定的后缀，与 JsonToHtmlConverter 保持一致
                     contentId = contentId + "_img";
                     
                     logger.info("图片文件名: {}, 生成的ContentId: {}", imgFileName, contentId);
@@ -410,7 +398,7 @@ public class EmailSenderService {
         }
     }
 
-    // 提取图片处理逻辑到单独的方法，以便重用
+    // 简化图片处理逻辑
     private void processImageFile(String imgFileName, String imageUrl, String contentId, 
                                 MimeMessageHelper helper, String imageResourcePath) {
         try {
@@ -421,7 +409,6 @@ public class EmailSenderService {
             File absoluteFile = new File(imageUrl);
             if (absoluteFile.exists() && absoluteFile.isFile()) {
                 imageFile = absoluteFile;
-                logger.info("从绝对路径找到图片: {}", absoluteFile.getAbsolutePath());
             }
             
             // 2. 检查图片是否在 images 目录下
@@ -429,7 +416,6 @@ public class EmailSenderService {
                 File imageResourceFile = new File(imageResourcePath, imgFileName);
                 if (imageResourceFile.exists() && imageResourceFile.isFile()) {
                     imageFile = imageResourceFile;
-                    logger.info("在图片资源目录找到图片: {}", imageResourceFile.getAbsolutePath());
                 }
             }
             
@@ -438,7 +424,6 @@ public class EmailSenderService {
                 File attachmentPathFile = new File(attachmentPath, imageUrl);
                 if (attachmentPathFile.exists() && attachmentPathFile.isFile()) {
                     imageFile = attachmentPathFile;
-                    logger.info("在附件根目录下找到图片: {}", attachmentPathFile.getAbsolutePath());
                 }
             }
             
@@ -448,57 +433,21 @@ public class EmailSenderService {
                 File imageInImagesDir = new File(imagesDir, imgFileName);
                 if (imageInImagesDir.exists() && imageInImagesDir.isFile()) {
                     imageFile = imageInImagesDir;
-                    logger.info("在附件根目录的images目录下找到图片: {}", imageInImagesDir.getAbsolutePath());
-                }
-            }
-            
-            // 5. 尝试不同的文件扩展名（例如，如果没有扩展名的话）
-            if (imageFile == null && !imgFileName.contains(".")) {
-                String[] commonExtensions = {"png", "jpg", "jpeg", "gif"};
-                for (String ext : commonExtensions) {
-                    File fileWithExt = new File(imageResourcePath, imgFileName + "." + ext);
-                    if (fileWithExt.exists() && fileWithExt.isFile()) {
-                        imageFile = fileWithExt;
-                        logger.info("通过添加扩展名找到图片: {}", fileWithExt.getAbsolutePath());
-                        break;
-                    }
                 }
             }
             
             if (imageFile != null) {
                 FileSystemResource resource = new FileSystemResource(imageFile);
-                
-                // 尝试确定图片的MIME类型
                 String mimeType = determineMimeType(imageFile.getName());
-                logger.info("图片 {} 的MIME类型: {}", imageFile.getName(), mimeType);
                 
-                // 添加内联图片附件，设置Content-ID - 使用不带尖括号的ContentId
+                // 使用简单方式添加内联图片
                 helper.addInline(contentId, resource, mimeType);
-                
-                logger.info("成功添加内嵌图片: 文件路径={}, contentId={}, 文件大小={}KB", 
-                    imageFile.getAbsolutePath(), contentId, imageFile.length()/1024);
+                logger.info("已添加内嵌图片: {} -> {}", imageFile.getName(), contentId);
             } else {
-                logger.error("无法找到图片文件: {}. 尝试查找的位置: 绝对路径, {}, {}", 
-                    imageUrl, imageResourcePath, attachmentPath + "/images");
-                
-                // 列出图片目录内容以帮助调试
-                File imagesDir = new File(attachmentPath, "images");
-                if (imagesDir.exists() && imagesDir.isDirectory()) {
-                    File[] files = imagesDir.listFiles();
-                    if (files != null && files.length > 0) {
-                        logger.info("图片目录包含以下文件:");
-                        for (File f : files) {
-                            logger.info(" - {} ({}KB)", f.getName(), f.length()/1024);
-                        }
-                    } else {
-                        logger.info("图片目录为空或无法列出文件");
-                    }
-                } else {
-                    logger.info("图片目录不存在: {}", imagesDir.getAbsolutePath());
-                }
+                logger.warn("无法找到图片文件: {}", imageUrl);
             }
         } catch (Exception e) {
-            logger.error("添加内嵌图片时出错: {}", e.getMessage(), e);
+            logger.error("添加内嵌图片时出错: {}", e.getMessage());
         }
     }
 }
