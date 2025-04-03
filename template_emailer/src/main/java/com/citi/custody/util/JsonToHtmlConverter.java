@@ -105,12 +105,57 @@ public class JsonToHtmlConverter {
                                         }
 
                                         if ("text".equals(type)) {
-                                            htmlBuilder.append("<p style=\"margin:0 0 10px 0;\">").append(text).append("</p>");
+                                            // 获取文本对齐方式
+                                            String alignment = "left"; // 默认左对齐
+                                            if (content.has("values") && !content.get("values").isNull()) {
+                                                JsonNode values = content.get("values");
+                                                if (values.has("align") && !values.get("align").isNull()) {
+                                                    String alignValue = values.get("align").asText();
+                                                    if ("left".equals(alignValue) || "right".equals(alignValue) || 
+                                                        "center".equals(alignValue) || "justify".equals(alignValue)) {
+                                                        alignment = alignValue;
+                                                    }
+                                                }
+                                            }
+                                            htmlBuilder.append("<p style=\"margin:0 0 10px 0; text-align:").append(alignment).append(";\">").append(text).append("</p>");
                                         } else if ("heading".equals(type)) {
-                                            htmlBuilder.append("<h1 style=\"margin:0 0 10px 0;font-size:24px;\">").append(text).append("</h1>");
+                                            // 获取标题对齐方式
+                                            String alignment = "left"; // 默认左对齐
+                                            if (content.has("values") && !content.get("values").isNull()) {
+                                                JsonNode values = content.get("values");
+                                                if (values.has("align") && !values.get("align").isNull()) {
+                                                    String alignValue = values.get("align").asText();
+                                                    if ("left".equals(alignValue) || "right".equals(alignValue) || 
+                                                        "center".equals(alignValue) || "justify".equals(alignValue)) {
+                                                        alignment = alignValue;
+                                                    }
+                                                }
+                                            }
+                                            htmlBuilder.append("<h1 style=\"margin:0 0 10px 0; font-size:24px; text-align:").append(alignment).append(";\">").append(text).append("</h1>");
                                         } else if ("button".equals(type)) {
+                                            // 获取按钮对齐方式
+                                            String alignment = "left"; // 默认左对齐
+                                            if (content.has("values") && !content.get("values").isNull()) {
+                                                JsonNode values = content.get("values");
+                                                if (values.has("align") && !values.get("align").isNull()) {
+                                                    String alignValue = values.get("align").asText();
+                                                    if ("left".equals(alignValue) || "right".equals(alignValue) || 
+                                                        "center".equals(alignValue) || "justify".equals(alignValue)) {
+                                                        alignment = alignValue;
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // 按钮对齐方式通过包装的表格实现
+                                            String alignStyle = "";
+                                            if ("center".equals(alignment)) {
+                                                alignStyle = "margin:0 auto;";
+                                            } else if ("right".equals(alignment)) {
+                                                alignStyle = "margin-left:auto;";
+                                            }
+                                            
                                             // Button as a styled link for better compatibility
-                                            htmlBuilder.append("<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\" style=\"margin:10px 0;\"><tr><td align=\"center\" bgcolor=\"#337ab7\" style=\"padding:10px 15px;border-radius:4px;\">");
+                                            htmlBuilder.append("<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\" style=\"margin:10px 0; " + alignStyle + "\"><tr><td align=\"center\" bgcolor=\"#337ab7\" style=\"padding:10px 15px;border-radius:4px;\">");
                                             htmlBuilder.append("<a href=\"#\" target=\"_blank\" style=\"color:#ffffff;text-decoration:none;display:block;font-weight:bold;\">").append(text).append("</a>");
                                             htmlBuilder.append("</td></tr></table>");
                                         } else if ("image".equals(type)) {
@@ -158,17 +203,44 @@ public class JsonToHtmlConverter {
                                                     System.out.println("处理图片: " + imgFileName + " -> contentId: " + contentId + " -> imageUrl: " + imageUrl);
                                                 }
                                                 
+                                                // 获取对齐方式
+                                                String alignment = "center"; // 默认居中
+                                                if (content.has("values") && !content.get("values").isNull()) {
+                                                    JsonNode values = content.get("values");
+                                                    if (values.has("align") && !values.get("align").isNull()) {
+                                                        String alignValue = values.get("align").asText();
+                                                        if ("left".equals(alignValue) || "right".equals(alignValue) || 
+                                                            "center".equals(alignValue) || "justify".equals(alignValue)) {
+                                                            alignment = alignValue;
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                // 根据对齐方式设置样式
+                                                String alignStyle = "text-align:" + alignment + ";";
+                                                String displayStyle = "display:inline-block;";
+                                                if ("left".equals(alignment)) {
+                                                    displayStyle = "display:block; margin-right:auto; margin-left:0;";
+                                                } else if ("right".equals(alignment)) {
+                                                    displayStyle = "display:block; margin-left:auto; margin-right:0;";
+                                                } else if ("center".equals(alignment)) {
+                                                    displayStyle = "display:block; margin-left:auto; margin-right:auto;";
+                                                }
+                                                
                                                 String altText = text.isEmpty() ? "Image" : text;
+                                                
                                                 // Wrap image in a table for better Outlook rendering
-                                                htmlBuilder.append("<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\"><tr><td style=\"text-align:center;\">");
+                                                htmlBuilder.append("<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\"><tr><td style=\"" + alignStyle + "\">");
                                                 htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
-                                                    .append(altText).append("\" style=\"display:inline-block; max-width:100%; height:auto;\"/>");
+                                                    .append(altText).append("\" style=\"" + displayStyle + " max-width:100%; height:auto;\"/>");
                                                 htmlBuilder.append("</td></tr></table>");
                                             }
                                         } else if ("html".equals(type)) {
                                             // 直接处理HTML内容，保留原始HTML代码
                                             // 从values中获取HTML内容
                                             String htmlContent = "";
+                                            String alignment = "left"; // 默认左对齐
+                                            
                                             if (content.has("values") && !content.get("values").isNull()) {
                                                 JsonNode values = content.get("values");
                                                 if (values.has("html") && !values.get("html").isNull()) {
@@ -176,12 +248,21 @@ public class JsonToHtmlConverter {
                                                 } else if (values.has("text") && !values.get("text").isNull()) {
                                                     htmlContent = values.get("text").asText();
                                                 }
+                                                
+                                                // 获取HTML内容对齐方式
+                                                if (values.has("align") && !values.get("align").isNull()) {
+                                                    String alignValue = values.get("align").asText();
+                                                    if ("left".equals(alignValue) || "right".equals(alignValue) || 
+                                                        "center".equals(alignValue) || "justify".equals(alignValue)) {
+                                                        alignment = alignValue;
+                                                    }
+                                                }
                                             }
                                             
                                             // 直接将HTML内容插入到输出中，不做任何处理或过滤
                                             if (!htmlContent.isEmpty()) {
-                                                // 包装在一个div中，确保HTML内容能够正确渲染，但不添加任何额外的table
-                                                htmlBuilder.append("<div style=\"width:100%;\">").append(htmlContent).append("</div>");
+                                                // 包装在一个div中，确保HTML内容能够正确渲染，并应用对齐样式
+                                                htmlBuilder.append("<div style=\"width:100%; text-align:").append(alignment).append(";\">").append(htmlContent).append("</div>");
                                             }
                                         }
                                     }
