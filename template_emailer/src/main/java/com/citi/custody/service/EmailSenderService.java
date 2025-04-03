@@ -87,11 +87,11 @@ public class EmailSenderService {
                 // 清理邮件地址中的空格和控制字符
                 String cleanSender = sender.trim().replaceAll("\\s+", "");
                 helper.setFrom(cleanSender);
-                logger.debug("Sender address set to: {}", cleanSender);
+                logger.debug("发件人地址设置为: {}", cleanSender);
             } catch (MessagingException e) {
-                logger.error("Error setting sender address: {}", e.getMessage(), e);
+                logger.error("设置发件人地址时出错: {}", e.getMessage(), e);
                 email.setStatus("FAILED");
-                email.setErrorMessage("Invalid sender address: " + sender);
+                email.setErrorMessage("无效的发件人地址: " + sender);
                 emailDao.saveEmail(email);
                 throw e;
             }
@@ -131,12 +131,6 @@ public class EmailSenderService {
                     email.getId(), e.getMessage(), e);
                 content = "<html><body><p>Error parsing template: " + e.getMessage() + "</p></body></html>";
             }
-            
-            // Set content type with VML support for Outlook
-            MimeMessage mimeMessage = helper.getMimeMessage();
-            mimeMessage.setHeader("Content-Type", "text/html; charset=utf-8");
-            mimeMessage.setHeader("X-MimeOLE", "Produced By Microsoft MimeOLE V6.00.2900.3350");
-            mimeMessage.setHeader("X-MSMail-Priority", "Normal");
             helper.setText(content, true); // true indicates HTML content
             
             // 处理模板中的内嵌图片
@@ -157,7 +151,7 @@ public class EmailSenderService {
                     processImagesInJsonNode(rootNode, helper, imageResourcePath);
                 }
             } catch (Exception e) {
-                logger.warn("Unable to process inline images in template: {}", e.getMessage());
+                logger.warn("无法处理模板中的内嵌图片: {}", e.getMessage());
             }
 
             // Add attachments if any
@@ -231,13 +225,13 @@ public class EmailSenderService {
     private void processImagesInJsonNode(JsonNode node, MimeMessageHelper helper, String imageResourcePath) throws Exception {
         // 在处理开始时输出整个节点结构，便于调试
         if (node.isObject() && node.has("body")) {
-            logger.info("Processing template JSON structure: {}", node.toString().substring(0, Math.min(200, node.toString().length())) + "...");
+            logger.info("处理模板JSON结构: {}", node.toString().substring(0, Math.min(200, node.toString().length())) + "...");
         }
         
         if (node.isObject()) {
             // 检查当前节点是否为图片类型
             if (node.has("type") && "image".equals(node.get("type").asText())) {
-                logger.info("Found image node: {}", node.toString());
+                logger.info("发现图片节点: {}", node.toString());
                 
                 JsonNode values = null;
                 if (node.has("values")) {
@@ -252,25 +246,25 @@ public class EmailSenderService {
                         if (values.get("src").isObject() && values.get("src").has("url")) {
                             // 处理 src 是一个对象的情况，取其中的 url 属性
                             imageUrl = values.get("src").get("url").asText();
-                            logger.info("Found image URL from src.url property: {}", imageUrl);
+                            logger.info("从src.url属性找到图片URL: {}", imageUrl);
                         } else {
                             // 直接获取 src 的值
                             imageUrl = values.get("src").asText();
-                            logger.info("Found image URL from src property: {}", imageUrl);
+                            logger.info("从src属性找到图片URL: {}", imageUrl);
                         }
                     } else if (values.has("url") && !values.get("url").isNull()) {
                         imageUrl = values.get("url").asText();
-                        logger.info("Found image URL from url property: {}", imageUrl);
+                        logger.info("从url属性找到图片URL: {}", imageUrl);
                     } else if (values.has("href") && !values.get("href").isNull()) {
                         imageUrl = values.get("href").asText();
-                        logger.info("Found image URL from href property: {}", imageUrl);
+                        logger.info("从href属性找到图片URL: {}", imageUrl);
                     }
                 }
                 
                 // 处理找到的图片URL
                 if (imageUrl != null && !imageUrl.isEmpty() && 
                     !imageUrl.startsWith("http://") && !imageUrl.startsWith("https://") && !imageUrl.startsWith("data:")) {
-                    logger.info("Processing local image: {}", imageUrl);
+                    logger.info("正在处理本地图片: {}", imageUrl);
                     
                     // 提取图片文件名
                     String imgFileName = imageUrl;
@@ -289,7 +283,7 @@ public class EmailSenderService {
                     // 添加固定的后缀，与 JsonToHtmlConverter 保持一致
                     contentId = contentId + "_img";
                     
-                    logger.info("Image filename: {}, Generated ContentId: {}", imgFileName, contentId);
+                    logger.info("图片文件名: {}, 生成的ContentId: {}", imgFileName, contentId);
                     
                     try {
                         // 尝试从多个位置加载图片
@@ -299,7 +293,7 @@ public class EmailSenderService {
                         File absoluteFile = new File(imageUrl);
                         if (absoluteFile.exists() && absoluteFile.isFile()) {
                             imageFile = absoluteFile;
-                            logger.info("Found image from absolute path: {}", absoluteFile.getAbsolutePath());
+                            logger.info("从绝对路径找到图片: {}", absoluteFile.getAbsolutePath());
                         }
                         
                         // 2. 检查图片是否在 images 目录下
@@ -307,7 +301,7 @@ public class EmailSenderService {
                             File imageResourceFile = new File(imageResourcePath, imgFileName);
                             if (imageResourceFile.exists() && imageResourceFile.isFile()) {
                                 imageFile = imageResourceFile;
-                                logger.info("Found image in image resource directory: {}", imageResourceFile.getAbsolutePath());
+                                logger.info("在图片资源目录找到图片: {}", imageResourceFile.getAbsolutePath());
                             }
                         }
                         
@@ -316,7 +310,7 @@ public class EmailSenderService {
                             File attachmentPathFile = new File(attachmentPath, imageUrl);
                             if (attachmentPathFile.exists() && attachmentPathFile.isFile()) {
                                 imageFile = attachmentPathFile;
-                                logger.info("Found image in attachment root directory: {}", attachmentPathFile.getAbsolutePath());
+                                logger.info("在附件根目录下找到图片: {}", attachmentPathFile.getAbsolutePath());
                             }
                         }
                         
@@ -326,7 +320,7 @@ public class EmailSenderService {
                             File imageInImagesDir = new File(imagesDir, imgFileName);
                             if (imageInImagesDir.exists() && imageInImagesDir.isFile()) {
                                 imageFile = imageInImagesDir;
-                                logger.info("Found image in images directory under attachment root: {}", imageInImagesDir.getAbsolutePath());
+                                logger.info("在附件根目录的images目录下找到图片: {}", imageInImagesDir.getAbsolutePath());
                             }
                         }
                         
@@ -335,23 +329,16 @@ public class EmailSenderService {
                             
                             // 尝试确定图片的MIME类型
                             String mimeType = determineMimeType(imageFile.getName());
-                            logger.info("MIME type for image {}: {}", imageFile.getName(), mimeType);
-                            
-                            // For Outlook compatibility, make sure content ID format is correct
-                            String outlookCompatibleContentId = contentId;
-                            if (!outlookCompatibleContentId.startsWith("<") && !outlookCompatibleContentId.endsWith(">")) {
-                                logger.debug("Adding angle brackets to content ID for Outlook compatibility");
-                                outlookCompatibleContentId = "<" + contentId + ">";
-                            }
+                            logger.info("图片 {} 的MIME类型: {}", imageFile.getName(), mimeType);
                             
                             // 添加内联图片附件，设置Content-ID
-                            helper.addInline(outlookCompatibleContentId, resource, mimeType);
+                            helper.addInline(contentId, resource, mimeType);
                             
-                            logger.info("Successfully added inline image: FilePath={}, contentId={}, FileSize={}KB, FileType={}", 
-                                imageFile.getAbsolutePath(), outlookCompatibleContentId, imageFile.length()/1024, 
+                            logger.info("成功添加内嵌图片: 文件路径={}, contentId={}, 文件大小={}KB, 文件类型={}", 
+                                imageFile.getAbsolutePath(), contentId, imageFile.length()/1024, 
                                 getFileExtension(imageFile.getName()));
                         } else {
-                            logger.error("Could not find image file: {}. Locations checked: absolute path, {}, {}", 
+                            logger.error("无法找到图片文件: {}. 尝试查找的位置: 绝对路径, {}, {}", 
                                 imageUrl, imageResourcePath, attachmentPath + "/images");
                             
                             // 列出图片目录内容以帮助调试
@@ -359,19 +346,19 @@ public class EmailSenderService {
                             if (imagesDir.exists() && imagesDir.isDirectory()) {
                                 File[] files = imagesDir.listFiles();
                                 if (files != null && files.length > 0) {
-                                    logger.info("Image directory contains the following files:");
+                                    logger.info("图片目录包含以下文件:");
                                     for (File f : files) {
                                         logger.info(" - {} ({}KB)", f.getName(), f.length()/1024);
                                     }
                                 } else {
-                                    logger.info("Image directory is empty or files could not be listed");
+                                    logger.info("图片目录为空或无法列出文件");
                                 }
                             } else {
-                                logger.info("Image directory does not exist: {}", imagesDir.getAbsolutePath());
+                                logger.info("图片目录不存在: {}", imagesDir.getAbsolutePath());
                             }
                         }
                     } catch (Exception e) {
-                        logger.error("Error adding inline image: {}", e.getMessage(), e);
+                        logger.error("添加内嵌图片时出错: {}", e.getMessage(), e);
                     }
                 }
             }
@@ -381,7 +368,7 @@ public class EmailSenderService {
                 try {
                     processImagesInJsonNode(entry.getValue(), helper, imageResourcePath);
                 } catch (Exception e) {
-                    logger.error("Error processing image field: {}", e.getMessage(), e);
+                    logger.error("处理图片字段时出错: {}", e.getMessage(), e);
                 }
             });
         } else if (node.isArray()) {
