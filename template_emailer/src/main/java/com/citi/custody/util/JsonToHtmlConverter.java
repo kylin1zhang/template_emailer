@@ -35,7 +35,28 @@ public class JsonToHtmlConverter {
             htmlBuilder.append("body { margin: 0; padding: 0; }");
             htmlBuilder.append("img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }");
             htmlBuilder.append("table { border-collapse: collapse !important; }");
+            
+            // 添加针对Outlook的特殊CSS
+            htmlBuilder.append("@media screen and (-webkit-min-device-pixel-ratio:0) {");
+            htmlBuilder.append("  .img-fix { display: inline !important; }");
+            htmlBuilder.append("}");
+            
+            // 专门处理Outlook的图片对齐问题
+            htmlBuilder.append(".img-left { text-align: left !important; }");
+            htmlBuilder.append(".img-center { text-align: center !important; }");
+            htmlBuilder.append(".img-right { text-align: right !important; }");
+            
             htmlBuilder.append("</style>");
+            
+            // 添加Outlook专用的条件注释
+            htmlBuilder.append("<!--[if gte mso 9]>");
+            htmlBuilder.append("<style type=\"text/css\">");
+            htmlBuilder.append("table { border-collapse: collapse !important; }");
+            htmlBuilder.append(".img-left { margin-left: 0 !important; margin-right: auto !important; }");
+            htmlBuilder.append(".img-center { margin-left: auto !important; margin-right: auto !important; }");
+            htmlBuilder.append(".img-right { margin-left: auto !important; margin-right: 0 !important; }");
+            htmlBuilder.append("</style>");
+            htmlBuilder.append("<![endif]-->");
             
             htmlBuilder.append("</head>");
             htmlBuilder.append("<body>");
@@ -216,24 +237,32 @@ public class JsonToHtmlConverter {
                                                     }
                                                 }
                                                 
-                                                // 根据对齐方式设置样式
-                                                String alignStyle = "text-align:" + alignment + ";";
-                                                String displayStyle = "display:inline-block;";
-                                                if ("left".equals(alignment)) {
-                                                    displayStyle = "display:block; margin-right:auto; margin-left:0;";
-                                                } else if ("right".equals(alignment)) {
-                                                    displayStyle = "display:block; margin-left:auto; margin-right:0;";
-                                                } else if ("center".equals(alignment)) {
-                                                    displayStyle = "display:block; margin-left:auto; margin-right:auto;";
-                                                }
-                                                
                                                 String altText = text.isEmpty() ? "Image" : text;
                                                 
-                                                // Wrap image in a table for better Outlook rendering
-                                                htmlBuilder.append("<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\"><tr><td style=\"" + alignStyle + "\">");
-                                                htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
-                                                    .append(altText).append("\" style=\"" + displayStyle + " max-width:100%; height:auto;\"/>");
-                                                htmlBuilder.append("</td></tr></table>");
+                                                // 特殊处理图片对齐方式 - 使用更兼容的方法
+                                                if ("left".equals(alignment)) {
+                                                    // 左对齐 - 使用最兼容的方式组合
+                                                    htmlBuilder.append("<div class=\"img-left\" style=\"text-align:left; margin-bottom:10px;\">");
+                                                    htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
+                                                        .append(altText).append("\" align=\"left\" hspace=\"0\" vspace=\"0\" style=\"display:block; max-width:100%; height:auto; margin:0; text-align:left;\" class=\"img-fix\" />");
+                                                    // 添加一个清除浮动
+                                                    htmlBuilder.append("<div style=\"clear:both; height:0; line-height:0; font-size:0;\">&nbsp;</div>");
+                                                    htmlBuilder.append("</div>");
+                                                } else if ("right".equals(alignment)) {
+                                                    // 右对齐 - 使用最兼容的方式组合
+                                                    htmlBuilder.append("<div class=\"img-right\" style=\"text-align:right; margin-bottom:10px;\">");
+                                                    htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
+                                                        .append(altText).append("\" align=\"right\" hspace=\"0\" vspace=\"0\" style=\"display:block; max-width:100%; height:auto; margin:0; float:right; text-align:right;\" class=\"img-fix\" />");
+                                                    // 添加一个清除浮动
+                                                    htmlBuilder.append("<div style=\"clear:both; height:0; line-height:0; font-size:0;\">&nbsp;</div>");
+                                                    htmlBuilder.append("</div>");
+                                                } else {
+                                                    // 居中对齐 - 使用多重技术确保兼容性
+                                                    htmlBuilder.append("<div class=\"img-center\" style=\"text-align:center; margin-bottom:10px;\">");
+                                                    htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
+                                                        .append(altText).append("\" align=\"center\" hspace=\"0\" vspace=\"0\" style=\"display:block; max-width:100%; height:auto; margin:0 auto; text-align:center;\" class=\"img-fix\" />");
+                                                    htmlBuilder.append("</div>");
+                                                }
                                             }
                                         } else if ("html".equals(type)) {
                                             // 直接处理HTML内容，保留原始HTML代码

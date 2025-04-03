@@ -155,7 +155,17 @@ public class EmailSenderService {
             }
             
             // 设置文本内容，必须在图片处理后进行
-            helper.setText(content, true); // true indicates HTML content
+            // 添加优先级和格式头信息，以确保HTML内容正确显示
+            MimeMessage mimeMessage = helper.getMimeMessage();
+            
+            // 设置优先级为普通
+            mimeMessage.addHeader("X-Priority", "3");
+            
+            // 确保收件人知道这是HTML格式的邮件
+            mimeMessage.addHeader("Content-Type", "text/html; charset=UTF-8");
+            
+            // 设置正文内容，第二个参数true表示这是HTML内容
+            helper.setText(content, true);
 
             // Add attachments if any
             if (email.getAttachments() != null && !email.getAttachments().isEmpty()) {
