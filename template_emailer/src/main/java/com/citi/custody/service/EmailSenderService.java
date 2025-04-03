@@ -136,7 +136,10 @@ public class EmailSenderService {
             MimeMessage mimeMessage = helper.getMimeMessage();
             mimeMessage.addHeader("X-Unsent", "1");
             mimeMessage.addHeader("X-Priority", "3");
+            // Add Content-Type header to specify HTML content with UTF-8 encoding
+            mimeMessage.addHeader("Content-Type", "text/html; charset=UTF-8");
             
+            // Use setText with true parameter to indicate HTML content
             helper.setText(content, true); // true indicates HTML content
             
             // 处理模板中的内嵌图片
@@ -291,80 +294,57 @@ public class EmailSenderService {
                     
                     logger.info("图片文件名: {}, 生成的ContentId: {}", imgFileName, contentId);
                     
-                    try {
-                        // 尝试从多个位置加载图片
-                        File imageFile = null;
-                        
-                        // 1. 检查是否为绝对路径
-                        File absoluteFile = new File(imageUrl);
-                        if (absoluteFile.exists() && absoluteFile.isFile()) {
-                            imageFile = absoluteFile;
-                            logger.info("从绝对路径找到图片: {}", absoluteFile.getAbsolutePath());
+                    // 使用提取的公共方法处理图片
+                    processImageFile(imgFileName, imageUrl, contentId, helper, imageResourcePath);
+                } else if (node.has("type") && "html".equals(node.get("type").asText())) {
+                    // 处理HTML类型的节点，查找其中的图片标签
+                    String htmlContent = "";
+                    if (node.has("values") && !node.get("values").isNull()) {
+                        JsonNode values = node.get("values");
+                        if (values.has("html") && !values.get("html").isNull()) {
+                            htmlContent = values.get("html").asText();
+                        } else if (values.has("text") && !values.get("text").isNull()) {
+                            htmlContent = values.get("text").asText();
                         }
+                    }
+                    
+                    // 处理HTML中的img标签
+                    if (!htmlContent.isEmpty()) {
+                        logger.info("Processing HTML content for images: {}", 
+                            htmlContent.length() > 100 ? htmlContent.substring(0, 100) + "..." : htmlContent);
                         
-                        // 2. 检查图片是否在 images 目录下
-                        if (imageFile == null) {
-                            File imageResourceFile = new File(imageResourcePath, imgFileName);
-                            if (imageResourceFile.exists() && imageResourceFile.isFile()) {
-                                imageFile = imageResourceFile;
-                                logger.info("在图片资源目录找到图片: {}", imageResourceFile.getAbsolutePath());
-                            }
-                        }
+                        // 简单解析HTML查找img标签
+                        // 这里使用正则表达式来匹配img标签的src属性
+                        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("<img[^>]+src\\s*=\\s*['\"]([^'\"]+)['\"][^>]*>");
+                        java.util.regex.Matcher matcher = pattern.matcher(htmlContent);
                         
-                        // 3. 如果路径包含 images/ 前缀，检查相对于附件根目录的路径
-                        if (imageFile == null && imageUrl.startsWith("images/")) {
-                            File attachmentPathFile = new File(attachmentPath, imageUrl);
-                            if (attachmentPathFile.exists() && attachmentPathFile.isFile()) {
-                                imageFile = attachmentPathFile;
-                                logger.info("在附件根目录下找到图片: {}", attachmentPathFile.getAbsolutePath());
-                            }
-                        }
-                        
-                        // 4. 额外尝试附件根目录下的图片目录
-                        if (imageFile == null) {
-                            File imagesDir = new File(attachmentPath, "images");
-                            File imageInImagesDir = new File(imagesDir, imgFileName);
-                            if (imageInImagesDir.exists() && imageInImagesDir.isFile()) {
-                                imageFile = imageInImagesDir;
-                                logger.info("在附件根目录的images目录下找到图片: {}", imageInImagesDir.getAbsolutePath());
-                            }
-                        }
-                        
-                        if (imageFile != null) {
-                            FileSystemResource resource = new FileSystemResource(imageFile);
+                        while (matcher.find()) {
+                            String imageUrl = matcher.group(1);
+                            logger.info("Found image URL in HTML content: {}", imageUrl);
                             
-                            // 尝试确定图片的MIME类型
-                            String mimeType = determineMimeType(imageFile.getName());
-                            logger.info("图片 {} 的MIME类型: {}", imageFile.getName(), mimeType);
-                            
-                            // 添加内联图片附件，设置Content-ID - 使用不带尖括号的ContentId，保持与HTML中相同
-                            helper.addInline(contentId, resource, mimeType);
-                            
-                            logger.info("成功添加内嵌图片: 文件路径={}, contentId={}, 文件大小={}KB, 文件类型={}", 
-                                imageFile.getAbsolutePath(), contentId, imageFile.length()/1024, 
-                                getFileExtension(imageFile.getName()));
-                        } else {
-                            logger.error("无法找到图片文件: {}. 尝试查找的位置: 绝对路径, {}, {}", 
-                                imageUrl, imageResourcePath, attachmentPath + "/images");
-                            
-                            // 列出图片目录内容以帮助调试
-                            File imagesDir = new File(attachmentPath, "images");
-                            if (imagesDir.exists() && imagesDir.isDirectory()) {
-                                File[] files = imagesDir.listFiles();
-                                if (files != null && files.length > 0) {
-                                    logger.info("图片目录包含以下文件:");
-                                    for (File f : files) {
-                                        logger.info(" - {} ({}KB)", f.getName(), f.length()/1024);
-                                    }
-                                } else {
-                                    logger.info("图片目录为空或无法列出文件");
+                            // 只处理非HTTP和HTTPS的本地图片
+                            if (imageUrl != null && !imageUrl.isEmpty() && 
+                                !imageUrl.startsWith("http://") && !imageUrl.startsWith("https://") && !imageUrl.startsWith("data:")) {
+                                
+                                // 提取图片文件名
+                                String imgFileName = imageUrl;
+                                if (imageUrl.contains("/")) {
+                                    imgFileName = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
                                 }
-                            } else {
-                                logger.info("图片目录不存在: {}", imagesDir.getAbsolutePath());
+                                
+                                // 保持与JsonToHtmlConverter中相同的contentId生成逻辑
+                                String contentId = imgFileName.replaceAll("[^a-zA-Z0-9.]", "_");
+                                if (contentId.contains(".")) {
+                                    contentId = contentId.substring(0, contentId.lastIndexOf('.'));
+                                }
+                                contentId = contentId + "_img";
+                                
+                                logger.info("处理HTML中的图片: {} -> contentId: {}", imgFileName, contentId);
+                                
+                                // 使用与常规图片节点相同的逻辑处理图片文件
+                                processImageFile(imgFileName, imageUrl, contentId, helper, imageResourcePath);
                             }
                         }
-                    } catch (Exception e) {
-                        logger.error("添加内嵌图片时出错: {}", e.getMessage(), e);
                     }
                 }
             }
@@ -423,6 +403,86 @@ public class EmailSenderService {
                 return "image/x-icon";
             default:
                 return "application/octet-stream";
+        }
+    }
+
+    // 提取图片处理逻辑到单独的方法，以便重用
+    private void processImageFile(String imgFileName, String imageUrl, String contentId, 
+                                MimeMessageHelper helper, String imageResourcePath) {
+        try {
+            // 尝试从多个位置加载图片
+            File imageFile = null;
+            
+            // 1. 检查是否为绝对路径
+            File absoluteFile = new File(imageUrl);
+            if (absoluteFile.exists() && absoluteFile.isFile()) {
+                imageFile = absoluteFile;
+                logger.info("从绝对路径找到图片: {}", absoluteFile.getAbsolutePath());
+            }
+            
+            // 2. 检查图片是否在 images 目录下
+            if (imageFile == null) {
+                File imageResourceFile = new File(imageResourcePath, imgFileName);
+                if (imageResourceFile.exists() && imageResourceFile.isFile()) {
+                    imageFile = imageResourceFile;
+                    logger.info("在图片资源目录找到图片: {}", imageResourceFile.getAbsolutePath());
+                }
+            }
+            
+            // 3. 如果路径包含 images/ 前缀，检查相对于附件根目录的路径
+            if (imageFile == null && imageUrl.startsWith("images/")) {
+                File attachmentPathFile = new File(attachmentPath, imageUrl);
+                if (attachmentPathFile.exists() && attachmentPathFile.isFile()) {
+                    imageFile = attachmentPathFile;
+                    logger.info("在附件根目录下找到图片: {}", attachmentPathFile.getAbsolutePath());
+                }
+            }
+            
+            // 4. 额外尝试附件根目录下的图片目录
+            if (imageFile == null) {
+                File imagesDir = new File(attachmentPath, "images");
+                File imageInImagesDir = new File(imagesDir, imgFileName);
+                if (imageInImagesDir.exists() && imageInImagesDir.isFile()) {
+                    imageFile = imageInImagesDir;
+                    logger.info("在附件根目录的images目录下找到图片: {}", imageInImagesDir.getAbsolutePath());
+                }
+            }
+            
+            if (imageFile != null) {
+                FileSystemResource resource = new FileSystemResource(imageFile);
+                
+                // 尝试确定图片的MIME类型
+                String mimeType = determineMimeType(imageFile.getName());
+                logger.info("图片 {} 的MIME类型: {}", imageFile.getName(), mimeType);
+                
+                // 添加内联图片附件，设置Content-ID - 使用不带尖括号的ContentId，保持与HTML中相同
+                helper.addInline(contentId, resource, mimeType);
+                
+                logger.info("成功添加内嵌图片: 文件路径={}, contentId={}, 文件大小={}KB, 文件类型={}", 
+                    imageFile.getAbsolutePath(), contentId, imageFile.length()/1024, 
+                    getFileExtension(imageFile.getName()));
+            } else {
+                logger.error("无法找到图片文件: {}. 尝试查找的位置: 绝对路径, {}, {}", 
+                    imageUrl, imageResourcePath, attachmentPath + "/images");
+                
+                // 列出图片目录内容以帮助调试
+                File imagesDir = new File(attachmentPath, "images");
+                if (imagesDir.exists() && imagesDir.isDirectory()) {
+                    File[] files = imagesDir.listFiles();
+                    if (files != null && files.length > 0) {
+                        logger.info("图片目录包含以下文件:");
+                        for (File f : files) {
+                            logger.info(" - {} ({}KB)", f.getName(), f.length()/1024);
+                        }
+                    } else {
+                        logger.info("图片目录为空或无法列出文件");
+                    }
+                } else {
+                    logger.info("图片目录不存在: {}", imagesDir.getAbsolutePath());
+                }
+            }
+        } catch (Exception e) {
+            logger.error("添加内嵌图片时出错: {}", e.getMessage(), e);
         }
     }
 }

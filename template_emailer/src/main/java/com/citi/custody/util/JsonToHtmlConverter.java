@@ -166,6 +166,23 @@ public class JsonToHtmlConverter {
                                                     .append(altText).append("\" width=\"100%\" style=\"display:block; width:100%; max-width:100%; height:auto;\"/>");
                                                 htmlBuilder.append("</td></tr></table>");
                                             }
+                                        } else if ("html".equals(type)) {
+                                            // 直接处理HTML内容，保留原始HTML代码
+                                            // 从values中获取HTML内容
+                                            String htmlContent = "";
+                                            if (content.has("values") && !content.get("values").isNull()) {
+                                                JsonNode values = content.get("values");
+                                                if (values.has("html") && !values.get("html").isNull()) {
+                                                    htmlContent = values.get("html").asText();
+                                                } else if (values.has("text") && !values.get("text").isNull()) {
+                                                    htmlContent = values.get("text").asText();
+                                                }
+                                            }
+                                            
+                                            // 直接将HTML内容插入到输出中，不做任何处理
+                                            if (!htmlContent.isEmpty()) {
+                                                htmlBuilder.append(htmlContent);
+                                            }
                                         }
                                     }
                                 }

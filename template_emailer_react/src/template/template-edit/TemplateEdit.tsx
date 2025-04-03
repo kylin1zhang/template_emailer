@@ -145,6 +145,30 @@ const TemplateEdit: React.FC = () => {
                                         { name: "1:2:1", layout: [1, 2, 1] },
                                         { name: "2:1:2", layout: [2, 1, 2] }
                                     ]
+                                },
+                                htmlEditor: {
+                                    enabled: true,
+                                    allowedTags: [
+                                        'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'col', 'colgroup',
+                                        'div', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'img',
+                                        'strong', 'b', 'em', 'i', 'u', 'strike', 'br', 'hr',
+                                        'ul', 'ol', 'li', 'style', 'script'
+                                    ],
+                                    allowedAttributes: '*',
+                                    sourceEditor: {
+                                        enabled: true
+                                    },
+                                    removeEmptyElements: false
+                                },
+                                textEditor: { 
+                                    enabled: true,
+                                    allowHTML: true
+                                }
+                            } as any,
+                            tools: {
+                                html: {
+                                    enabled: true,
+                                    position: 1
                                 }
                             } as any
                         }}
