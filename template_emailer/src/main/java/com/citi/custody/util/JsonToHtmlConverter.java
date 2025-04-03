@@ -133,31 +133,25 @@ public class JsonToHtmlConverter {
                                                 }
                                                 
                                                 String altText = text.isEmpty() ? "Image" : text;
-                                                
-                                                // 通用属性
-                                                String imgTag = "<img src=\"" + imageUrl + "\" alt=\"" + altText + "\" border=\"0\" style=\"display:block;\"/>";
-                                                
-                                                // 根据对齐方式使用最简单的单元格对齐
-                                                htmlBuilder.append("<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\"><tr>");
-                                                
+
+                                                // 极简的图片处理方式，仅使用align属性和极简表格布局
                                                 if ("left".equals(alignment)) {
-                                                    // 左对齐 - 图片在左侧单元格
-                                                    htmlBuilder.append("<td align=\"left\">");
-                                                    htmlBuilder.append(imgTag);
-                                                    htmlBuilder.append("</td><td></td>");
+                                                    // 左对齐 - 直接使用img的align属性
+                                                    htmlBuilder.append("<img src=\"").append(imageUrl).append("\" align=\"left\" alt=\"")
+                                                        .append(altText).append("\" style=\"display:block; max-width:100%; margin-right:auto;\" />");
                                                 } else if ("right".equals(alignment)) {
-                                                    // 右对齐 - 图片在右侧单元格
-                                                    htmlBuilder.append("<td></td><td align=\"right\">");
-                                                    htmlBuilder.append(imgTag);
-                                                    htmlBuilder.append("</td>");
+                                                    // 右对齐 - 添加div容器来辅助对齐
+                                                    htmlBuilder.append("<div style=\"text-align:right;\">");
+                                                    htmlBuilder.append("<img src=\"").append(imageUrl).append("\" align=\"right\" alt=\"")
+                                                        .append(altText).append("\" style=\"display:block; max-width:100%;\" />");
+                                                    htmlBuilder.append("</div>");
                                                 } else {
-                                                    // 居中 - 图片在中间
-                                                    htmlBuilder.append("<td align=\"center\">");
-                                                    htmlBuilder.append(imgTag);
-                                                    htmlBuilder.append("</td>");
+                                                    // 居中对齐 - 使用div居中
+                                                    htmlBuilder.append("<div style=\"text-align:center;\">");
+                                                    htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
+                                                        .append(altText).append("\" style=\"display:block; max-width:100%; margin-left:auto; margin-right:auto;\" />");
+                                                    htmlBuilder.append("</div>");
                                                 }
-                                                
-                                                htmlBuilder.append("</tr></table>");
                                             }
                                         } else if ("html".equals(type)) {
                                             // 直接HTML内容

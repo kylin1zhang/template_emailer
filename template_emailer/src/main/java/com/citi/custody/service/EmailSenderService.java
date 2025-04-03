@@ -347,8 +347,9 @@ public class EmailSenderService {
                 // 确定图片的MIME类型
                 String mimeType = determineMimeType(imgFileName);
                 
-                // 添加内联图片
-                helper.addInline(contentId, imageFile, mimeType);
+                // 添加内联图片 - 使用FileSystemResource包装File对象
+                FileSystemResource resource = new FileSystemResource(imageFile);
+                helper.addInline(contentId, resource, mimeType);
                 
                 logger.debug("成功添加内联图片: {}", contentId);
             } else {
