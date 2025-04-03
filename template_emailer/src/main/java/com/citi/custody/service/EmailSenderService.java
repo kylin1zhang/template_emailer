@@ -20,6 +20,11 @@ import java.util.Date;
 import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 @Service
 public class EmailSenderService {
@@ -154,10 +159,14 @@ public class EmailSenderService {
                 content = "<html><body><p>Error parsing template: " + e.getMessage() + "</p></body></html>";
             }
             
-            // 设置文本内容，必须在图片处理后进行
-            // 删除不必要的头信息，这些可能导致MIME分隔符显示在邮件内容中
-            // 直接使用helper的setText方法，不添加额外头信息
-            helper.setText(content, true); // true indicates HTML content
+            // 设置邮件内容
+            String emailContent = content;
+            logger.debug("正在设置邮件内容: 长度={}", emailContent.length());
+
+            // 简化设置，只使用一次setText方法，避免重复设置造成的问题
+            helper.setText(emailContent, true);
+            // 不要添加额外的头信息，避免混淆邮件客户端
+            logger.debug("邮件内容设置完成");
 
             // Add attachments if any
             if (email.getAttachments() != null && !email.getAttachments().isEmpty()) {
@@ -228,132 +237,125 @@ public class EmailSenderService {
      * 递归处理JSON节点中的所有图片
      */
     private void processImagesInJsonNode(JsonNode node, MimeMessageHelper helper, String imageResourcePath) throws Exception {
-        // 在处理开始时输出整个节点结构，便于调试
-        if (node.isObject() && node.has("body")) {
-            logger.info("处理模板JSON结构: {}", node.toString().substring(0, Math.min(200, node.toString().length())) + "...");
+        if (node == null) {
+            return;
+        }
+
+        if (node.isObject()) {
+            String nodeType = node.path("type").asText();
+            
+            // 特殊处理HTML节点，查找<img>标签
+            if ("html".equals(nodeType) && node.has("values") && node.path("values").has("html")) {
+                String htmlContent = node.path("values").path("html").asText();
+                processImagesInHtml(htmlContent, helper, imageResourcePath);
+            }
+            
+            // 处理图片节点
+            if ("image".equals(nodeType) && node.has("values") && node.path("values").has("src")) {
+                String imageUrl = node.path("values").path("src").asText();
+                if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://") && !imageUrl.startsWith("data:")) {
+                    String imgFileName = getFileNameFromPath(imageUrl);
+                    if (imgFileName != null && !imgFileName.isEmpty()) {
+                        String contentId = generateContentId(imgFileName);
+                        processImageFile(imgFileName, imageUrl, contentId, helper, imageResourcePath);
+                    }
+                }
+            }
+
+            // 递归处理所有字段
+            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> entry = fields.next();
+                processImagesInJsonNode(entry.getValue(), helper, imageResourcePath);
+            }
+        } else if (node.isArray()) {
+            for (JsonNode element : node) {
+                processImagesInJsonNode(element, helper, imageResourcePath);
+            }
+        }
+    }
+
+    // 添加新方法：处理HTML内容中的图片
+    private void processImagesInHtml(String htmlContent, MimeMessageHelper helper, String imageResourcePath) throws Exception {
+        if (htmlContent == null || htmlContent.isEmpty()) {
+            return;
         }
         
-        if (node.isObject()) {
-            // 检查当前节点是否为图片类型
-            if (node.has("type") && "image".equals(node.get("type").asText())) {
-                logger.info("发现图片节点: {}", node.toString());
-                
-                JsonNode values = null;
-                if (node.has("values")) {
-                    values = node.get("values");
-                }
-                
-                String imageUrl = null;
-                
-                // 尝试从不同的属性中获取图片URL
-                if (values != null) {
-                    if (values.has("src") && !values.get("src").isNull()) {
-                        if (values.get("src").isObject() && values.get("src").has("url")) {
-                            // 处理 src 是一个对象的情况，取其中的 url 属性
-                            imageUrl = values.get("src").get("url").asText();
-                            logger.info("从src.url属性找到图片URL: {}", imageUrl);
-                        } else {
-                            // 直接获取 src 的值
-                            imageUrl = values.get("src").asText();
-                            logger.info("从src属性找到图片URL: {}", imageUrl);
-                        }
-                    } else if (values.has("url") && !values.get("url").isNull()) {
-                        imageUrl = values.get("url").asText();
-                        logger.info("从url属性找到图片URL: {}", imageUrl);
-                    } else if (values.has("href") && !values.get("href").isNull()) {
-                        imageUrl = values.get("href").asText();
-                        logger.info("从href属性找到图片URL: {}", imageUrl);
-                    }
-                }
-                
-                // 处理找到的图片URL
-                if (imageUrl != null && !imageUrl.isEmpty() && 
-                    !imageUrl.startsWith("http://") && !imageUrl.startsWith("https://") && !imageUrl.startsWith("data:")) {
-                    logger.info("正在处理本地图片: {}", imageUrl);
-                    
-                    // 提取图片文件名
-                    String imgFileName = imageUrl;
-                    if (imageUrl.contains("/")) {
-                        imgFileName = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
-                    }
-                    
-                    // 简化ContentId生成逻辑
-                    String contentId = imgFileName.replaceAll("[^a-zA-Z0-9.]", "_");
-                    if (contentId.contains(".")) {
-                        contentId = contentId.substring(0, contentId.lastIndexOf('.'));
-                    }
-                    contentId = contentId + "_img";
-                    
-                    logger.info("图片文件名: {}, 生成的ContentId: {}", imgFileName, contentId);
-                    
-                    // 使用提取的公共方法处理图片
+        // 使用正则表达式查找所有<img>标签的src属性
+        Pattern pattern = Pattern.compile("<img[^>]+src\\s*=\\s*['\"]([^'\"]+)['\"][^>]*>", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(htmlContent);
+        
+        while (matcher.find()) {
+            String imageUrl = matcher.group(1);
+            // 只处理本地图片（非http/https/data:开头的URL）
+            if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://") && !imageUrl.startsWith("data:")) {
+                String imgFileName = getFileNameFromPath(imageUrl);
+                if (imgFileName != null && !imgFileName.isEmpty()) {
+                    String contentId = generateContentId(imgFileName);
+                    logger.debug("Found image in HTML: {}, contentId: {}", imgFileName, contentId);
                     processImageFile(imgFileName, imageUrl, contentId, helper, imageResourcePath);
-                } else if (node.has("type") && "html".equals(node.get("type").asText())) {
-                    // 处理HTML类型的节点，查找其中的图片标签
-                    String htmlContent = "";
-                    if (node.has("values") && !node.get("values").isNull()) {
-                        JsonNode htmlValues = node.get("values");
-                        if (htmlValues.has("html") && !htmlValues.get("html").isNull()) {
-                            htmlContent = htmlValues.get("html").asText();
-                        } else if (htmlValues.has("text") && !htmlValues.get("text").isNull()) {
-                            htmlContent = htmlValues.get("text").asText();
-                        }
-                    }
-                    
-                    // 处理HTML中的img标签
-                    if (!htmlContent.isEmpty()) {
-                        logger.info("Processing HTML content for images: {}", 
-                            htmlContent.length() > 100 ? htmlContent.substring(0, 100) + "..." : htmlContent);
-                        
-                        // 简单解析HTML查找img标签
-                        // 这里使用正则表达式来匹配img标签的src属性
-                        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("<img[^>]+src\\s*=\\s*['\"]([^'\"]+)['\"][^>]*>");
-                        java.util.regex.Matcher matcher = pattern.matcher(htmlContent);
-                        
-                        while (matcher.find()) {
-                            String htmlImageUrl = matcher.group(1);
-                            logger.info("Found image URL in HTML content: {}", htmlImageUrl);
-                            
-                            // 只处理非HTTP和HTTPS的本地图片
-                            if (htmlImageUrl != null && !htmlImageUrl.isEmpty() && 
-                                !htmlImageUrl.startsWith("http://") && !htmlImageUrl.startsWith("https://") && !htmlImageUrl.startsWith("data:")) {
-                                
-                                // 提取图片文件名
-                                String htmlImgFileName = htmlImageUrl;
-                                if (htmlImageUrl.contains("/")) {
-                                    htmlImgFileName = htmlImageUrl.substring(htmlImageUrl.lastIndexOf("/") + 1);
-                                }
-                                
-                                // 保持与JsonToHtmlConverter中相同的contentId生成逻辑
-                                String htmlContentId = htmlImgFileName.replaceAll("[^a-zA-Z0-9.]", "_");
-                                if (htmlContentId.contains(".")) {
-                                    htmlContentId = htmlContentId.substring(0, htmlContentId.lastIndexOf('.'));
-                                }
-                                htmlContentId = htmlContentId + "_img";
-                                
-                                logger.info("处理HTML中的图片: {} -> contentId: {}", htmlImgFileName, htmlContentId);
-                                
-                                // 使用与常规图片节点相同的逻辑处理图片文件
-                                processImageFile(htmlImgFileName, htmlImageUrl, htmlContentId, helper, imageResourcePath);
-                            }
-                        }
-                    }
+                }
+            }
+        }
+    }
+
+    // 从路径中提取文件名
+    private String getFileNameFromPath(String path) {
+        if (path == null || path.isEmpty()) {
+            return null;
+        }
+        
+        int lastSlashIndex = path.lastIndexOf('/');
+        if (lastSlashIndex >= 0 && lastSlashIndex < path.length() - 1) {
+            return path.substring(lastSlashIndex + 1);
+        }
+        
+        return path;
+    }
+
+    // 生成ContentID
+    private String generateContentId(String fileName) {
+        return fileName.replaceAll("[^a-zA-Z0-9.-]", "_") + "@" + UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    /**
+     * 简化版的图片处理方法
+     */
+    private void processImageFile(String imgFileName, String imageUrl, String contentId, 
+                                 MimeMessageHelper helper, String imageResourcePath) {
+        logger.debug("处理图片: {} -> {}", imgFileName, contentId);
+        
+        try {
+            // 尝试多个可能的图片路径
+            File imageFile = null;
+            String[] possiblePaths = {
+                imageUrl,  // 直接使用提供的路径
+                imageResourcePath + File.separator + imgFileName,  // 图片资源目录
+                attachmentPath + File.separator + imgFileName,  // 附件根目录
+                attachmentPath + File.separator + "images" + File.separator + imgFileName  // 附件下的images目录
+            };
+            
+            for (String path : possiblePaths) {
+                File file = new File(path);
+                if (file.exists() && file.isFile()) {
+                    imageFile = file;
+                    break;
                 }
             }
             
-            // 处理所有字段
-            node.fields().forEachRemaining(entry -> {
-                try {
-                    processImagesInJsonNode(entry.getValue(), helper, imageResourcePath);
-                } catch (Exception e) {
-                    logger.error("处理图片字段时出错: {}", e.getMessage(), e);
-                }
-            });
-        } else if (node.isArray()) {
-            // 处理数组中的每个元素
-            for (JsonNode item : node) {
-                processImagesInJsonNode(item, helper, imageResourcePath);
+            if (imageFile != null && imageFile.exists()) {
+                // 确定图片的MIME类型
+                String mimeType = determineMimeType(imgFileName);
+                
+                // 添加内联图片
+                helper.addInline(contentId, imageFile, mimeType);
+                
+                logger.debug("成功添加内联图片: {}", contentId);
+            } else {
+                logger.warn("找不到图片文件: {}", imgFileName);
             }
+        } catch (Exception e) {
+            logger.error("处理图片时出错 {}: {}", imgFileName, e.getMessage());
         }
     }
 
@@ -395,59 +397,6 @@ public class EmailSenderService {
                 return "image/x-icon";
             default:
                 return "application/octet-stream";
-        }
-    }
-
-    // 简化图片处理逻辑
-    private void processImageFile(String imgFileName, String imageUrl, String contentId, 
-                                MimeMessageHelper helper, String imageResourcePath) {
-        try {
-            // 尝试从多个位置加载图片
-            File imageFile = null;
-            
-            // 1. 检查是否为绝对路径
-            File absoluteFile = new File(imageUrl);
-            if (absoluteFile.exists() && absoluteFile.isFile()) {
-                imageFile = absoluteFile;
-            }
-            
-            // 2. 检查图片是否在 images 目录下
-            if (imageFile == null) {
-                File imageResourceFile = new File(imageResourcePath, imgFileName);
-                if (imageResourceFile.exists() && imageResourceFile.isFile()) {
-                    imageFile = imageResourceFile;
-                }
-            }
-            
-            // 3. 如果路径包含 images/ 前缀，检查相对于附件根目录的路径
-            if (imageFile == null && imageUrl.startsWith("images/")) {
-                File attachmentPathFile = new File(attachmentPath, imageUrl);
-                if (attachmentPathFile.exists() && attachmentPathFile.isFile()) {
-                    imageFile = attachmentPathFile;
-                }
-            }
-            
-            // 4. 额外尝试附件根目录下的图片目录
-            if (imageFile == null) {
-                File imagesDir = new File(attachmentPath, "images");
-                File imageInImagesDir = new File(imagesDir, imgFileName);
-                if (imageInImagesDir.exists() && imageInImagesDir.isFile()) {
-                    imageFile = imageInImagesDir;
-                }
-            }
-            
-            if (imageFile != null) {
-                FileSystemResource resource = new FileSystemResource(imageFile);
-                String mimeType = determineMimeType(imageFile.getName());
-                
-                // 使用简单方式添加内联图片
-                helper.addInline(contentId, resource, mimeType);
-                logger.info("已添加内嵌图片: {} -> {}", imageFile.getName(), contentId);
-            } else {
-                logger.warn("无法找到图片文件: {}", imageUrl);
-            }
-        } catch (Exception e) {
-            logger.error("添加内嵌图片时出错: {}", e.getMessage());
         }
     }
 }
