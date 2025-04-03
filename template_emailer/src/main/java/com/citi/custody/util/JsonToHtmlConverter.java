@@ -25,7 +25,6 @@ public class JsonToHtmlConverter {
 
             // Start building the HTML with DOCTYPE and namespace declarations for Outlook
             StringBuilder htmlBuilder = new StringBuilder();
-            htmlBuilder.append("<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">");
             htmlBuilder.append("<html xmlns=\"http://www.w3.org/1999/xhtml\">");
             htmlBuilder.append("<head>");
             htmlBuilder.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />");
@@ -161,9 +160,9 @@ public class JsonToHtmlConverter {
                                                 
                                                 String altText = text.isEmpty() ? "Image" : text;
                                                 // Wrap image in a table for better Outlook rendering
-                                                htmlBuilder.append("<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\"><tr><td>");
+                                                htmlBuilder.append("<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\"><tr><td style=\"text-align:center;\">");
                                                 htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
-                                                    .append(altText).append("\" width=\"100%\" style=\"display:block; width:100%; max-width:100%; height:auto;\"/>");
+                                                    .append(altText).append("\" style=\"display:inline-block; max-width:100%; height:auto;\"/>");
                                                 htmlBuilder.append("</td></tr></table>");
                                             }
                                         } else if ("html".equals(type)) {
@@ -179,9 +178,10 @@ public class JsonToHtmlConverter {
                                                 }
                                             }
                                             
-                                            // 直接将HTML内容插入到输出中，不做任何处理
+                                            // 直接将HTML内容插入到输出中，不做任何处理或过滤
                                             if (!htmlContent.isEmpty()) {
-                                                htmlBuilder.append(htmlContent);
+                                                // 包装在一个div中，确保HTML内容能够正确渲染，但不添加任何额外的table
+                                                htmlBuilder.append("<div style=\"width:100%;\">").append(htmlContent).append("</div>");
                                             }
                                         }
                                     }

@@ -80,6 +80,7 @@ public class EmailSenderService {
 
             // Create mail message
             MimeMessage message = mailSender.createMimeMessage();
+            // 使用第三个参数为true来启用multipart模式，这对内嵌图片很重要
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             // 设置发件人地址，确保地址格式正确
@@ -110,6 +111,27 @@ public class EmailSenderService {
                 helper.setCc(email.getCc().toArray(new String[0]));
             }
 
+            // 先处理模板中的内嵌图片，确保图片在内容设置前已准备好
+            try {
+                if (template != null && template.getContent() != null) {
+                    // 解析JSON以找出可能的图片引用
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    JsonNode rootNode = objectMapper.readTree(template.getContent());
+                    
+                    // 创建一个图片资源目录
+                    String imageResourcePath = attachmentPath + "/images";
+                    File imageDir = new File(imageResourcePath);
+                    if (!imageDir.exists()) {
+                        imageDir.mkdirs();
+                    }
+                    
+                    // 查找并处理所有图片节点
+                    processImagesInJsonNode(rootNode, helper, imageResourcePath);
+                }
+            } catch (Exception e) {
+                logger.warn("无法处理模板中的内嵌图片: {}", e.getMessage());
+            }
+
             // Set content from template or default content
             String content = "This is an automated email.";
             try {
@@ -132,36 +154,8 @@ public class EmailSenderService {
                 content = "<html><body><p>Error parsing template: " + e.getMessage() + "</p></body></html>";
             }
             
-            // Add additional headers for Outlook compatibility
-            MimeMessage mimeMessage = helper.getMimeMessage();
-            mimeMessage.addHeader("X-Unsent", "1");
-            mimeMessage.addHeader("X-Priority", "3");
-            // Add Content-Type header to specify HTML content with UTF-8 encoding
-            mimeMessage.addHeader("Content-Type", "text/html; charset=UTF-8");
-            
-            // Use setText with true parameter to indicate HTML content
+            // 设置文本内容，必须在图片处理后进行
             helper.setText(content, true); // true indicates HTML content
-            
-            // 处理模板中的内嵌图片
-            try {
-                if (template != null && template.getContent() != null) {
-                    // 解析JSON以找出可能的图片引用
-                    ObjectMapper objectMapper = new ObjectMapper();
-                    JsonNode rootNode = objectMapper.readTree(template.getContent());
-                    
-                    // 创建一个图片资源目录
-                    String imageResourcePath = attachmentPath + "/images";
-                    File imageDir = new File(imageResourcePath);
-                    if (!imageDir.exists()) {
-                        imageDir.mkdirs();
-                    }
-                    
-                    // 查找并处理所有图片节点
-                    processImagesInJsonNode(rootNode, helper, imageResourcePath);
-                }
-            } catch (Exception e) {
-                logger.warn("无法处理模板中的内嵌图片: {}", e.getMessage());
-            }
 
             // Add attachments if any
             if (email.getAttachments() != null && !email.getAttachments().isEmpty()) {
@@ -448,6 +442,19 @@ public class EmailSenderService {
                 }
             }
             
+            // 5. 尝试不同的文件扩展名（例如，如果没有扩展名的话）
+            if (imageFile == null && !imgFileName.contains(".")) {
+                String[] commonExtensions = {"png", "jpg", "jpeg", "gif"};
+                for (String ext : commonExtensions) {
+                    File fileWithExt = new File(imageResourcePath, imgFileName + "." + ext);
+                    if (fileWithExt.exists() && fileWithExt.isFile()) {
+                        imageFile = fileWithExt;
+                        logger.info("通过添加扩展名找到图片: {}", fileWithExt.getAbsolutePath());
+                        break;
+                    }
+                }
+            }
+            
             if (imageFile != null) {
                 FileSystemResource resource = new FileSystemResource(imageFile);
                 
@@ -455,12 +462,11 @@ public class EmailSenderService {
                 String mimeType = determineMimeType(imageFile.getName());
                 logger.info("图片 {} 的MIME类型: {}", imageFile.getName(), mimeType);
                 
-                // 添加内联图片附件，设置Content-ID - 使用不带尖括号的ContentId，保持与HTML中相同
+                // 添加内联图片附件，设置Content-ID - 使用不带尖括号的ContentId
                 helper.addInline(contentId, resource, mimeType);
                 
-                logger.info("成功添加内嵌图片: 文件路径={}, contentId={}, 文件大小={}KB, 文件类型={}", 
-                    imageFile.getAbsolutePath(), contentId, imageFile.length()/1024, 
-                    getFileExtension(imageFile.getName()));
+                logger.info("成功添加内嵌图片: 文件路径={}, contentId={}, 文件大小={}KB", 
+                    imageFile.getAbsolutePath(), contentId, imageFile.length()/1024);
             } else {
                 logger.error("无法找到图片文件: {}. 尝试查找的位置: 绝对路径, {}, {}", 
                     imageUrl, imageResourcePath, attachmentPath + "/images");
