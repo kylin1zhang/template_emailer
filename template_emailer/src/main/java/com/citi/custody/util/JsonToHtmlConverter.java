@@ -98,9 +98,11 @@ public class JsonToHtmlConverter {
                                             htmlBuilder.append("<p style=\"margin:0 0 10px 0;text-align:").append(alignment).append(";\">")
                                                     .append(text).append("</p>");
                                         } else if ("heading".equals(type)) {
-                                            // 标题
+                                            // 标题 - 确保标题独立一行，前后有清除浮动
+                                            htmlBuilder.append("<div style=\"clear:both;\"></div>");
                                             htmlBuilder.append("<h1 style=\"margin:0 0 10px 0;font-size:24px;text-align:")
                                                     .append(alignment).append(";\">").append(text).append("</h1>");
+                                            htmlBuilder.append("<div style=\"clear:both;\"></div>");
                                         } else if ("image".equals(type)) {
                                             // 图片处理
                                             String imageUrl = "";
@@ -133,25 +135,35 @@ public class JsonToHtmlConverter {
                                                 }
                                                 
                                                 String altText = text.isEmpty() ? "Image" : text;
-
-                                                // 极简的图片处理方式，仅使用align属性和极简表格布局
+                                                
+                                                // 为图片添加清除浮动，确保它在自己的行中显示
+                                                htmlBuilder.append("<div style=\"clear:both;\"></div>");
+                                                
+                                                // 为图片创建一个自包含的div，避免与其他元素混合
+                                                htmlBuilder.append("<div style=\"display:block; width:100%; margin:0 0 10px 0;\">");
+                                                
                                                 if ("left".equals(alignment)) {
-                                                    // 左对齐 - 直接使用img的align属性
-                                                    htmlBuilder.append("<img src=\"").append(imageUrl).append("\" align=\"left\" alt=\"")
-                                                        .append(altText).append("\" style=\"display:block; max-width:100%; margin-right:auto;\" />");
+                                                    // 左对齐
+                                                    htmlBuilder.append("<div style=\"text-align:left;\">");
+                                                    htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
+                                                        .append(altText).append("\" style=\"display:block; border:0; max-width:100%;\" />");
+                                                    htmlBuilder.append("</div>");
                                                 } else if ("right".equals(alignment)) {
-                                                    // 右对齐 - 添加div容器来辅助对齐
+                                                    // 右对齐
                                                     htmlBuilder.append("<div style=\"text-align:right;\">");
-                                                    htmlBuilder.append("<img src=\"").append(imageUrl).append("\" align=\"right\" alt=\"")
-                                                        .append(altText).append("\" style=\"display:block; max-width:100%;\" />");
+                                                    htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
+                                                        .append(altText).append("\" style=\"display:block; border:0; max-width:100%;\" />");
                                                     htmlBuilder.append("</div>");
                                                 } else {
-                                                    // 居中对齐 - 使用div居中
+                                                    // 居中对齐
                                                     htmlBuilder.append("<div style=\"text-align:center;\">");
                                                     htmlBuilder.append("<img src=\"").append(imageUrl).append("\" alt=\"")
-                                                        .append(altText).append("\" style=\"display:block; max-width:100%; margin-left:auto; margin-right:auto;\" />");
+                                                        .append(altText).append("\" style=\"display:block; border:0; max-width:100%; margin:0 auto;\" />");
                                                     htmlBuilder.append("</div>");
                                                 }
+                                                
+                                                htmlBuilder.append("</div>");
+                                                htmlBuilder.append("<div style=\"clear:both;\"></div>");
                                             }
                                         } else if ("html".equals(type)) {
                                             // 直接HTML内容
