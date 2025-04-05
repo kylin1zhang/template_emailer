@@ -25,6 +25,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.io.FileInputStream;
+import org.apache.commons.io.IOUtils;
+import org.springframework.core.io.ByteArrayResource;
 
 @Service
 public class EmailSenderService {
@@ -142,8 +145,45 @@ public class EmailSenderService {
             try {
                 if (template != null) {
                     if (template.getContent() != null) {
-                        logger.debug("Converting template content to HTML for email: {}", email.getId());
-                        content = JsonToHtmlConverter.convertJsonToHtml(template.getContent());
+                        logger.info("处理模板内容（ID: {}）开始处理，内容长度: {}", 
+                            template.getId(), template.getContent().length());
+                        
+                        // 分析原始JSON模板内容
+                        analyzeHtmlContent(template.getContent(), "原始JSON");
+                        
+                        // 先检查模板内容是否包含原始HTML内容
+                        boolean containsHtml = JsonToHtmlConverter.containsHtmlContent(template.getContent());
+                        logger.info("模板内容包含原始HTML: {}", containsHtml);
+                        
+                        if (containsHtml) {
+                            // 提取原始HTML内容
+                            String rawHtml = JsonToHtmlConverter.extractRawHtmlContent(template.getContent());
+                            if (rawHtml != null && !rawHtml.isEmpty()) {
+                                logger.info("已提取原始HTML内容，长度: {}", rawHtml.length());
+                                
+                                // 检查是否需要包装HTML内容
+                                if (!rawHtml.toLowerCase().contains("<html") || !rawHtml.toLowerCase().contains("<body")) {
+                                    logger.info("原始HTML内容缺少完整HTML结构，将进行包装");
+                                    // 添加基本HTML结构
+                                    content = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body>" + rawHtml + "</body></html>";
+                                } else {
+                                    content = rawHtml;
+                                }
+                                
+                                // 分析处理后的HTML内容
+                                analyzeHtmlContent(content, "提取的原始HTML");
+                            } else {
+                                logger.warn("包含HTML类型节点但无法提取内容，将使用标准转换");
+                                content = JsonToHtmlConverter.convertJsonToHtml(template.getContent());
+                            }
+                        } else {
+                            // 使用标准转换
+                            content = JsonToHtmlConverter.convertJsonToHtml(template.getContent());
+                        }
+                        
+                        // 分析转换后的HTML内容
+                        analyzeHtmlContent(content, "转换后HTML");
+                        
                         logger.debug("Template content converted successfully, length: {}", content.length());
                         
                         // 检查转换后的内容是否包含完整的HTML结构
@@ -166,11 +206,12 @@ public class EmailSenderService {
             }
             
             // 设置邮件内容
-            logger.debug("正在设置邮件内容: 长度={}", content.length());
+            logger.info("正在设置邮件内容: 长度={}, 类型=HTML", content.length());
+            analyzeHtmlContent(content, "最终设置内容");
 
             // 简化设置，只使用一次setText方法，确保内容不被替换
             helper.setText(content, true);
-            logger.debug("邮件内容设置完成");
+            logger.info("邮件内容设置完成，最终内容长度: {}", content.length());
 
             // Add attachments if any
             if (email.getAttachments() != null && !email.getAttachments().isEmpty()) {
@@ -403,5 +444,67 @@ public class EmailSenderService {
             default:
                 return "application/octet-stream";
         }
+    }
+
+    /**
+     * 添加专门用于记录和诊断HTML内容的方法
+     */
+    private void analyzeHtmlContent(String content, String stage) {
+        if (content == null || content.isEmpty()) {
+            logger.warn("HTML内容分析 [{}]: 内容为空", stage);
+            return;
+        }
+
+        logger.info("HTML内容分析 [{}]: 内容长度={}", stage, content.length());
+        
+        // 检查是否包含完整的HTML结构
+        boolean hasHtmlTag = content.contains("<html") && content.contains("</html>");
+        boolean hasBodyTag = content.contains("<body") && content.contains("</body>");
+        boolean hasHeadTag = content.contains("<head") && content.contains("</head>");
+        boolean hasStyleTag = content.contains("<style") && content.contains("</style>");
+        
+        logger.info("HTML结构分析 [{}]: HTML标签={}, HEAD标签={}, BODY标签={}, STYLE标签={}", 
+            stage, hasHtmlTag, hasHeadTag, hasBodyTag, hasStyleTag);
+        
+        // 检查表格结构
+        int tableCount = countOccurrences(content, "<table");
+        int tableCloseCount = countOccurrences(content, "</table>");
+        int tableRowCount = countOccurrences(content, "<tr");
+        int tableCellCount = countOccurrences(content, "<td");
+        
+        logger.info("表格结构分析 [{}]: 表格数量={}, 表格行数量={}, 表格单元格数量={}", 
+            stage, tableCount, tableRowCount, tableCellCount);
+        
+        if (tableCount != tableCloseCount) {
+            logger.warn("表格结构不匹配 [{}]: 开始标签={}, 结束标签={}", stage, tableCount, tableCloseCount);
+        }
+        
+        // 检查图片标签
+        int imgCount = countOccurrences(content, "<img");
+        logger.info("图片分析 [{}]: 图片标签数量={}", stage, imgCount);
+        
+        // 检查是否有自定义HTML内容
+        if (content.contains("type=\"html\"") || content.contains("type=\\\"html\\\"")) {
+            logger.info("发现自定义HTML内容类型 [{}]", stage);
+        }
+        
+        // 检查内容中是否有MIME分隔符或部分标记
+        if (content.contains("part_") || content.contains("boundary=")) {
+            logger.warn("内容中可能包含MIME分隔符 [{}]", stage);
+        }
+        
+        // 记录内容预览
+        String contentPreview = content.length() > 200 ? content.substring(0, 200) + "..." : content;
+        logger.debug("内容预览 [{}]: {}", stage, contentPreview);
+    }
+
+    private int countOccurrences(String text, String substring) {
+        int count = 0;
+        int index = 0;
+        while ((index = text.indexOf(substring, index)) != -1) {
+            count++;
+            index += substring.length();
+        }
+        return count;
     }
 }

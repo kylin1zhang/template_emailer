@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Iterator;
+import java.util.Map;
 
 public class JsonToHtmlConverter {
 
@@ -16,10 +18,12 @@ public class JsonToHtmlConverter {
     public static String convertJsonToHtml(String json) throws IOException {
         // 检查输入JSON是否为空
         if (json == null || json.trim().isEmpty()) {
+            System.out.println("警告: 输入的JSON为空，返回默认HTML");
             return "<html><body><p>No content available</p></body></html>";
         }
 
         try {
+            System.out.println("开始解析模板JSON: 长度=" + json.length());
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode rootNode = objectMapper.readTree(json);
 
@@ -50,11 +54,20 @@ public class JsonToHtmlConverter {
             // 生成内容主表格
             htmlBuilder.append("<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\" width=\"100%\">");
 
+            // 检查是否有原始HTML内容节点被错误处理
+            JsonNode origHtmlNode = findHtmlContentNode(rootNode);
+            if (origHtmlNode != null) {
+                System.out.println("警告: 发现原始HTML内容节点，可能会覆盖其他内容");
+                String htmlValue = origHtmlNode.asText();
+                logHtmlContentSample("HTML内容样本", htmlValue);
+            }
+
             // 解析body节点
             JsonNode bodyNode = rootNode.get("body");
             if (bodyNode != null) {
                 JsonNode rows = bodyNode.get("rows");
                 if (rows != null && rows.isArray()) {
+                    System.out.println("解析到模板行数: " + rows.size());
                     for (JsonNode row : rows) {
                         // 每行作为一个表格行
                         htmlBuilder.append("<tr><td>");
@@ -248,16 +261,20 @@ public class JsonToHtmlConverter {
                     }
                 }
             } else {
+                System.out.println("警告: 找不到body节点，无法解析内容结构");
                 // 没有正确的body结构时添加默认内容
                 htmlBuilder.append("<tr><td>").append(json).append("</td></tr>");
             }
 
             htmlBuilder.append("</table>"); // 关闭主容器表格
             htmlBuilder.append("</body></html>");
-            return htmlBuilder.toString();
+            String result = htmlBuilder.toString();
+            System.out.println("JSON转HTML完成, 生成HTML长度: " + result.length());
+            return result;
         } catch (Exception e) {
             // 记录错误并返回简单HTML
             System.err.println("Error converting JSON to HTML: " + e.getMessage());
+            e.printStackTrace();
             return "<html><body><p>Error parsing template content: " + e.getMessage() + "</p></body></html>";
         }
     }
@@ -288,5 +305,107 @@ public class JsonToHtmlConverter {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    // 添加新的调试方法
+    private static void logHtmlContentSample(String message, String content) {
+        String sample = content.length() > 100 ? content.substring(0, 100) + "..." : content;
+        System.out.println(message + ": " + sample);
+    }
+
+    // 用于在JSON中查找HTML内容节点的辅助方法
+    private static JsonNode findHtmlContentNode(JsonNode node) {
+        if (node == null) {
+            return null;
+        }
+        
+        if (node.isObject()) {
+            // 检查当前节点是否为HTML类型
+            if (node.has("type") && "html".equals(node.path("type").asText())) {
+                if (node.has("values") && node.path("values").has("html")) {
+                    return node.path("values").path("html");
+                }
+            }
+            
+            // 递归检查所有字段
+            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+            while (fields.hasNext()) {
+                JsonNode result = findHtmlContentNode(fields.next().getValue());
+                if (result != null) {
+                    return result;
+                }
+            }
+        } else if (node.isArray()) {
+            // 递归检查数组中的所有元素
+            for (JsonNode element : node) {
+                JsonNode result = findHtmlContentNode(element);
+                if (result != null) {
+                    return result;
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * 提取JSON中的原始HTML内容，不添加额外的结构
+     * @param json The JSON string containing HTML content
+     * @return 提取的HTML内容，如果没有找到则返回null
+     */
+    public static String extractRawHtmlContent(String json) {
+        try {
+            System.out.println("尝试从JSON中提取原始HTML内容");
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode rootNode = objectMapper.readTree(json);
+            
+            // 查找HTML内容节点
+            JsonNode htmlNode = findHtmlContentNode(rootNode);
+            if (htmlNode != null) {
+                String htmlContent = htmlNode.asText();
+                System.out.println("成功提取HTML内容，长度: " + htmlContent.length());
+                return htmlContent;
+            }
+            
+            System.out.println("在JSON中未找到HTML内容节点");
+            return null;
+        } catch (Exception e) {
+            System.err.println("从JSON提取HTML内容时出错: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * 判断JSON中是否包含HTML内容节点
+     * @param json The JSON string to check
+     * @return 是否包含HTML内容
+     */
+    public static boolean containsHtmlContent(String json) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode rootNode = objectMapper.readTree(json);
+            JsonNode htmlNode = findHtmlContentNode(rootNode);
+            return htmlNode != null;
+        } catch (Exception e) {
+            System.err.println("检查JSON中的HTML内容时出错: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 重载convertJsonToHtml方法，添加提取原始内容的选项
+     */
+    public static String convertJsonToHtml(String json, boolean extractRawHtmlOnly) throws IOException {
+        if (extractRawHtmlOnly) {
+            String rawHtml = extractRawHtmlContent(json);
+            if (rawHtml != null) {
+                return rawHtml;
+            }
+            // 如果没有找到原始HTML，继续使用标准转换
+            System.out.println("未找到原始HTML内容，将使用标准转换");
+        }
+        
+        return convertJsonToHtml(json);
     }
 }
