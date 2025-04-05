@@ -144,7 +144,13 @@ public class EmailSenderService {
                     if (template.getContent() != null) {
                         logger.debug("Converting template content to HTML for email: {}", email.getId());
                         content = JsonToHtmlConverter.convertJsonToHtml(template.getContent());
-                        logger.debug("Template content converted successfully");
+                        logger.debug("Template content converted successfully, length: {}", content.length());
+                        
+                        // 检查转换后的内容是否包含完整的HTML结构
+                        if (!content.contains("<html") || !content.contains("<body")) {
+                            logger.warn("Converted HTML missing proper structure, attempting to fix");
+                            content = "<html><body>" + content + "</body></html>";
+                        }
                     } else {
                         logger.warn("Template {} has null content, using default content for email: {}", 
                             template.getId(), email.getId());
@@ -160,12 +166,10 @@ public class EmailSenderService {
             }
             
             // 设置邮件内容
-            String emailContent = content;
-            logger.debug("正在设置邮件内容: 长度={}", emailContent.length());
+            logger.debug("正在设置邮件内容: 长度={}", content.length());
 
-            // 简化设置，只使用一次setText方法，避免重复设置造成的问题
-            helper.setText(emailContent, true);
-            // 不要添加额外的头信息，避免混淆邮件客户端
+            // 简化设置，只使用一次setText方法，确保内容不被替换
+            helper.setText(content, true);
             logger.debug("邮件内容设置完成");
 
             // Add attachments if any

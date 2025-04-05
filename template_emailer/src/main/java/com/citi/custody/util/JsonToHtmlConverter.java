@@ -36,6 +36,12 @@ public class JsonToHtmlConverter {
             htmlBuilder.append("body{margin:0;padding:0;font-family:Arial,sans-serif;}");
             htmlBuilder.append("table{border-collapse:collapse;width:100%;}");
             htmlBuilder.append("img{max-width:100%;height:auto;}");
+            // 添加表格样式，保持边框和内边距的一致性
+            htmlBuilder.append("table.content-table{border:1px solid #ddd;width:100%;margin-bottom:15px;}");
+            htmlBuilder.append("table.content-table th{background-color:#f8f9fa;font-weight:bold;text-align:left;padding:8px;border:1px solid #ddd;}");
+            htmlBuilder.append("table.content-table td{padding:8px;border:1px solid #ddd;}");
+            // 添加表格行的悬停效果
+            htmlBuilder.append("table.content-table tr:hover{background-color:#f5f5f5;}");
             htmlBuilder.append("</style>");
             
             htmlBuilder.append("</head>");
@@ -169,18 +175,66 @@ public class JsonToHtmlConverter {
                                             // 直接HTML内容
                                             String htmlContent = values.path("html").asText("");
                                             if (!htmlContent.isEmpty()) {
-                                                htmlBuilder.append("<div style=\"text-align:").append(alignment).append(";\">")
-                                                        .append(htmlContent).append("</div>");
+                                                // 添加清除浮动确保HTML内容在自己的行中
+                                                htmlBuilder.append("<div style=\"clear:both;\"></div>");
+                                                
+                                                // 检查HTML内容是否包含表格
+                                                boolean containsTable = htmlContent.contains("<table") || htmlContent.contains("<TABLE");
+                                                
+                                                if (containsTable) {
+                                                    // 如果包含表格，我们需要特殊处理以确保表格样式被保留
+                                                    // 将任何没有class的表格添加content-table类
+                                                    htmlContent = htmlContent.replaceAll("<table(?![^>]*class=)", "<table class=\"content-table\"");
+                                                    
+                                                    // 尝试保留表格的原始对齐方式
+                                                    htmlBuilder.append("<div style=\"width:100%;");
+                                                    if ("center".equals(alignment)) {
+                                                        htmlBuilder.append("text-align:center;");
+                                                    } else if ("right".equals(alignment)) {
+                                                        htmlBuilder.append("text-align:right;");
+                                                    } else {
+                                                        htmlBuilder.append("text-align:left;");
+                                                    }
+                                                    htmlBuilder.append("\">");
+                                                    
+                                                    // 直接插入表格内容
+                                                    htmlBuilder.append(htmlContent);
+                                                    
+                                                    htmlBuilder.append("</div>");
+                                                } else {
+                                                    // 对于非表格的HTML内容
+                                                    htmlBuilder.append("<table width=\"100%\" border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr><td align=\"")
+                                                            .append(alignment).append("\" style=\"text-align:").append(alignment).append(";\">");
+                                                    
+                                                    // 直接插入HTML内容
+                                                    htmlBuilder.append(htmlContent);
+                                                    
+                                                    htmlBuilder.append("</td></tr></table>");
+                                                }
+                                                
+                                                htmlBuilder.append("<div style=\"clear:both;\"></div>");
                                             }
                                         } else if ("button".equals(type)) {
-                                            // 简化按钮
-                                            String alignStyle = "left".equals(alignment) ? "" : 
-                                                              ("center".equals(alignment) ? "margin:0 auto;" : "margin-left:auto;");
+                                            // 添加清除浮动
+                                            htmlBuilder.append("<div style=\"clear:both;\"></div>");
                                             
-                                            htmlBuilder.append("<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\" style=\"margin:10px 0;")
-                                                    .append(alignStyle).append("\"><tr><td style=\"padding:10px 15px;background-color:#337ab7;border-radius:4px;\">")
-                                                    .append("<a href=\"#\" style=\"color:#ffffff;text-decoration:none;display:block;\">")
-                                                    .append(text).append("</a></td></tr></table>");
+                                            // 简化按钮，但使用更可靠的表格布局
+                                            if ("left".equals(alignment)) {
+                                                htmlBuilder.append("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\"><tr><td align=\"left\">");
+                                            } else if ("right".equals(alignment)) {
+                                                htmlBuilder.append("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\"><tr><td align=\"right\">");
+                                            } else {
+                                                htmlBuilder.append("<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\"><tr><td align=\"center\">");
+                                            }
+                                            
+                                            // 按钮本身
+                                            htmlBuilder.append("<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\"><tr><td style=\"padding:10px 15px;background-color:#337ab7;border-radius:4px;\">");
+                                            htmlBuilder.append("<a href=\"#\" style=\"color:#ffffff;text-decoration:none;display:block;\">")
+                                                    .append(text).append("</a>");
+                                            htmlBuilder.append("</td></tr></table>");
+                                            
+                                            htmlBuilder.append("</td></tr></table>");
+                                            htmlBuilder.append("<div style=\"clear:both;\"></div>");
                                         }
                                     }
                                 }
