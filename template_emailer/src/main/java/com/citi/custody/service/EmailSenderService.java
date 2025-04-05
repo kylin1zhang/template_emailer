@@ -148,6 +148,13 @@ public class EmailSenderService {
                         logger.info("处理模板内容（ID: {}）开始处理，内容长度: {}", 
                             template.getId(), template.getContent().length());
                         
+                        // 判断JSON格式有效性
+                        boolean isValidJson = isValidJson(template.getContent());
+                        if (!isValidJson) {
+                            logger.warn("模板内容不是有效的JSON格式，尝试修复");
+                            template.setContent(fixJsonFormat(template.getContent()));
+                        }
+                        
                         // 分析原始JSON模板内容
                         analyzeHtmlContent(template.getContent(), "原始JSON");
                         
@@ -162,10 +169,25 @@ public class EmailSenderService {
                                 logger.info("已提取原始HTML内容，长度: {}", rawHtml.length());
                                 
                                 // 检查是否需要包装HTML内容
-                                if (!rawHtml.toLowerCase().contains("<html") || !rawHtml.toLowerCase().contains("<body")) {
+                                if (!rawHtml.toLowerCase().contains("<html") || !rawHtml.toLowerCase().contains("</html>") || 
+                                    !rawHtml.toLowerCase().contains("<body") || !rawHtml.toLowerCase().contains("</body>")) {
                                     logger.info("原始HTML内容缺少完整HTML结构，将进行包装");
-                                    // 添加基本HTML结构
-                                    content = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body>" + rawHtml + "</body></html>";
+                                    // 添加基本HTML结构和CSS样式
+                                    StringBuilder sb = new StringBuilder();
+                                    sb.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\">");
+                                    // 添加必要的样式
+                                    sb.append("<style>");
+                                    sb.append("body{margin:0;padding:0;font-family:Arial,sans-serif;}");
+                                    sb.append("table{border-collapse:collapse;width:100%;}");
+                                    sb.append("img{max-width:100%;height:auto;}");
+                                    sb.append(".align-left{text-align:left;}");
+                                    sb.append(".align-center{text-align:center;}");
+                                    sb.append(".align-right{text-align:right;}");
+                                    sb.append("</style>");
+                                    sb.append("</head><body>");
+                                    sb.append(rawHtml);
+                                    sb.append("</body></html>");
+                                    content = sb.toString();
                                 } else {
                                     content = rawHtml;
                                 }
@@ -174,6 +196,7 @@ public class EmailSenderService {
                                 analyzeHtmlContent(content, "提取的原始HTML");
                             } else {
                                 logger.warn("包含HTML类型节点但无法提取内容，将使用标准转换");
+                                // 尝试使用增强的转换方法
                                 content = JsonToHtmlConverter.convertJsonToHtml(template.getContent());
                             }
                         } else {
@@ -189,8 +212,27 @@ public class EmailSenderService {
                         // 检查转换后的内容是否包含完整的HTML结构
                         if (!content.contains("<html") || !content.contains("<body")) {
                             logger.warn("Converted HTML missing proper structure, attempting to fix");
-                            content = "<html><body>" + content + "</body></html>";
+                            
+                            // 添加完整的HTML结构
+                            StringBuilder sb = new StringBuilder();
+                            sb.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\">");
+                            // 添加必要的样式
+                            sb.append("<style>");
+                            sb.append("body{margin:0;padding:0;font-family:Arial,sans-serif;}");
+                            sb.append("table{border-collapse:collapse;width:100%;}");
+                            sb.append("img{max-width:100%;height:auto;}");
+                            sb.append(".align-left{text-align:left !important;}");
+                            sb.append(".align-center{text-align:center !important;}");
+                            sb.append(".align-right{text-align:right !important;}");
+                            sb.append("</style>");
+                            sb.append("</head><body>");
+                            sb.append(content);
+                            sb.append("</body></html>");
+                            content = sb.toString();
                         }
+                        
+                        // 确保内容中对表格、图片和文本的对齐方式正确应用
+                        content = ensureAlignmentStyles(content);
                     } else {
                         logger.warn("Template {} has null content, using default content for email: {}", 
                             template.getId(), email.getId());
@@ -506,5 +548,94 @@ public class EmailSenderService {
             index += substring.length();
         }
         return count;
+    }
+
+    /**
+     * 验证字符串是否为有效的JSON格式
+     */
+    private boolean isValidJson(String jsonString) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.readTree(jsonString);
+            return true;
+        } catch (Exception e) {
+            logger.warn("JSON格式验证失败: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * 尝试修复JSON格式问题
+     */
+    private String fixJsonFormat(String json) {
+        if (json == null) return null;
+        
+        try {
+            // 替换可能的错误格式
+            json = json.replaceAll("\\\\\"", "\"")  // 修复转义的引号
+                     .replaceAll("\\n", " ")      // 删除换行符
+                     .replaceAll("\\r", " ");     // 删除回车符
+                     
+            // 检查括号平衡
+            int curlyBraces = 0;
+            int squareBrackets = 0;
+            
+            for (char c : json.toCharArray()) {
+                if (c == '{') curlyBraces++;
+                else if (c == '}') curlyBraces--;
+                else if (c == '[') squareBrackets++;
+                else if (c == ']') squareBrackets--;
+            }
+            
+            // 添加缺失的括号
+            while (curlyBraces > 0) {
+                json += "}";
+                curlyBraces--;
+            }
+            
+            while (squareBrackets > 0) {
+                json += "]";
+                squareBrackets--;
+            }
+            
+            return json;
+        } catch (Exception e) {
+            logger.error("修复JSON格式时出错: {}", e.getMessage());
+            return json; // 返回原始JSON，让后续处理尝试解析
+        }
+    }
+    
+    /**
+     * 确保对齐方式样式正确应用于HTML内容
+     */
+    private String ensureAlignmentStyles(String htmlContent) {
+        if (htmlContent == null || htmlContent.isEmpty()) {
+            return htmlContent;
+        }
+        
+        try {
+            // 确保表格对齐方式正确
+            htmlContent = htmlContent.replaceAll("<table([^>]*)align=\"center\"([^>]*)>", 
+                    "<table$1align=\"center\"$2 style=\"margin-left:auto;margin-right:auto;\">")
+                .replaceAll("<table([^>]*)align=\"right\"([^>]*)>", 
+                    "<table$1align=\"right\"$2 style=\"margin-left:auto;margin-right:0;\">")
+                .replaceAll("<tr([^>]*)align=\"center\"([^>]*)>", 
+                    "<tr$1align=\"center\"$2 style=\"text-align:center;\">")
+                .replaceAll("<tr([^>]*)align=\"right\"([^>]*)>", 
+                    "<tr$1align=\"right\"$2 style=\"text-align:right;\">");
+            
+            // 强化图片对齐方式
+            htmlContent = htmlContent.replaceAll("<img([^>]*)class=\"img-left\"([^>]*)>", 
+                    "<img$1class=\"img-left\"$2 style=\"float:left;margin-right:15px;margin-bottom:10px;\">")
+                .replaceAll("<img([^>]*)class=\"img-center\"([^>]*)>", 
+                    "<img$1class=\"img-center\"$2 style=\"display:block;margin-left:auto;margin-right:auto;margin-bottom:10px;\">")
+                .replaceAll("<img([^>]*)class=\"img-right\"([^>]*)>", 
+                    "<img$1class=\"img-right\"$2 style=\"float:right;margin-left:15px;margin-bottom:10px;\">");
+                
+            return htmlContent;
+        } catch (Exception e) {
+            logger.error("应用对齐样式时出错: {}", e.getMessage());
+            return htmlContent; // 返回原始内容
+        }
     }
 }
