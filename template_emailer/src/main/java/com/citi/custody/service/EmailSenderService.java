@@ -179,13 +179,23 @@ public class EmailSenderService {
                         sb.append(css);
                         // 添加基本样式
                         sb.append("body{font-family:Arial,sans-serif; margin:0; padding:0;}");
+                        // 添加分栏布局样式
+                        sb.append(".one-column{display:table; width:100%;}");
+                        sb.append(".one-column .column{display:table-cell; width:100%;}");
+                        sb.append(".two-column{display:table; width:100%;}");
+                        sb.append(".two-column .column{display:table-cell; width:50%;}");
+                        // 表格样式
+                        sb.append("table.gjs-table{width:100%; border-collapse:collapse;}");
+                        sb.append("table.gjs-table td{border:1px solid #ddd; padding:8px; text-align:left;}");
+                        sb.append("table.gjs-table th{border:1px solid #ddd; padding:8px; text-align:left; background-color:#f2f2f2;}");
                         sb.append("</style>");
                         
                         sb.append("</head>");
                         sb.append("<body>");
                         
                         // 直接添加 HTML 内容，不做过多处理
-                        sb.append(html);
+                        String processedHtml = processLayout(html);
+                        sb.append(processedHtml);
                         
                         sb.append("</body></html>");
                         
@@ -605,41 +615,27 @@ public class EmailSenderService {
         }
         
         try {
-            // 移除可能导致 Outlook 显示原始代码的特殊字符
-            html = html.replace("<!DOCTYPE html>", "")
-                       .replace("<html lang=\"en\">", "")
-                       .replace("<head>", "")
-                       .replace("<meta charset=\"UTF-8\">", "")
-                       .replace("</head>", "");
-                
-            // 处理分栏布局 - 使用表格布局
-            // 修复分栏显示为上下而非左右的问题
-            html = html.replaceAll("<div class=\"gjs-row\"", "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:100%;margin:0;padding:0;\">");
-            html = html.replaceAll("</div>", "</td></table>");
+            // 处理一栏布局
+            html = html.replaceAll("<div class=\"one-column\"", "<table class=\"one-column\" width=\"100%\" cellspacing=\"0\" cellpadding=\"10\" border=\"0\"");
+            html = html.replaceAll("<div class=\"column\"", "<tr><td class=\"column\"");
             
-            // 修改：将cell转换为td，保留在同一行中（使用colspan处理单列的情况）
-            html = html.replaceAll("<div class=\"gjs-cell\"", "<td valign=\"top\" style=\"vertical-align:top;padding:10px;\"");
+            // 处理两栏布局
+            html = html.replaceAll("<div class=\"two-column\"", "<table class=\"two-column\" width=\"100%\" cellspacing=\"0\" cellpadding=\"10\" border=\"0\"");
             
-            // 处理分栏的列数
-            html = html.replaceAll("data-columns=\"2\"", "width=\"50%\"");
-            html = html.replaceAll("data-columns=\"3\"", "width=\"33%\"");
-            html = html.replaceAll("data-columns=\"4\"", "width=\"25%\"");
+            // 确保 column 类的 div 转换为 table 单元格
+            html = html.replaceAll("<div class=\"column\"", "<td class=\"column\"");
+            html = html.replaceAll("</div></div>", "</td></tr></table>");
             
-            // 处理表格 - 使用更兼容的写法，不强制第一行居中
-            html = html.replaceAll("<table class=\"gjs-table\"", "<table width=\"100%\" cellpadding=\"8\" cellspacing=\"0\" border=\"1\" style=\"width:100%;border-collapse:collapse;margin:10px 0;border:1px solid #ddd;\"");
-            html = html.replaceAll("<td", "<td style=\"border:1px solid #ddd;padding:8px;text-align:left;\"");
-            html = html.replaceAll("<th", "<th style=\"border:1px solid #ddd;padding:8px;text-align:left;background-color:#f2f2f2;\"");
+            // 移除多余的关闭标签
+            html = html.replaceAll("</div>", "");
+            
+            // 处理表格
+            html = html.replaceAll("<table", "<table cellspacing=\"0\" cellpadding=\"8\" border=\"1\" style=\"width:100%; border-collapse:collapse;\"");
+            html = html.replaceAll("<td", "<td style=\"border:1px solid #ddd; padding:8px; text-align:left;\"");
+            html = html.replaceAll("<th", "<th style=\"border:1px solid #ddd; padding:8px; text-align:left; background-color:#f2f2f2;\"");
             
             // 处理图片
-            html = html.replaceAll("<img", "<img style=\"max-width:100%;height:auto;\"");
-            
-            // 处理文本对齐，只处理明确设置了对齐的元素
-            html = html.replaceAll("class=\"align-left\"", "align=\"left\" style=\"text-align:left;\"");
-            html = html.replaceAll("class=\"align-center\"", "align=\"center\" style=\"text-align:center;\"");
-            html = html.replaceAll("class=\"align-right\"", "align=\"right\" style=\"text-align:right;\"");
-            
-            // 处理文本格式化
-            html = html.replaceAll("<p", "<p style=\"margin:0;padding:0;\"");
+            html = html.replaceAll("<img", "<img style=\"max-width:100%; height:auto;\"");
             
             return html;
         } catch (Exception e) {
