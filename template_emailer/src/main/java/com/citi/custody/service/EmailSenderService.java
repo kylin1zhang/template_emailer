@@ -122,6 +122,9 @@ public class EmailSenderService {
             // 先处理模板中的内嵌图片，确保图片在内容设置前已准备好
             try {
                 if (template != null && template.getContent() != null) {
+                    // 添加日志记录原始 JSON
+                    logger.info("原始模板 JSON: {}", template.getContent());
+                    
                     // 解析JSON以找出可能的图片引用
                     ObjectMapper objectMapper = new ObjectMapper();
                     JsonNode rootNode = objectMapper.readTree(template.getContent());
@@ -145,6 +148,9 @@ public class EmailSenderService {
             if (template != null) {
                 try {
                     if (template.getContent() != null) {
+                        // 添加日志记录原始 JSON
+                        logger.info("原始模板 JSON: {}", template.getContent());
+                        
                         // 解析 GrapesJS 生成的 JSON 格式
                         ObjectMapper objectMapper = new ObjectMapper();
                         JsonNode rootNode = objectMapper.readTree(template.getContent());
@@ -161,38 +167,26 @@ public class EmailSenderService {
                             css = rootNode.get("css").asText();
                         }
                         
-                        // 组合 HTML 和 CSS
+                        // 组合 HTML 和 CSS - 使用更简单的方式
                         StringBuilder sb = new StringBuilder();
-                        sb.append("<html xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:o=\"urn:schemas-microsoft-com:office:office\" xmlns:w=\"urn:schemas-microsoft-com:office:word\" xmlns:m=\"http://schemas.microsoft.com/office/2004/12/omml\" xmlns=\"http://www.w3.org/TR/REC-html40\">");
+                        sb.append("<!DOCTYPE html>");
+                        sb.append("<html>");
                         sb.append("<head>");
                         sb.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
-                        sb.append("<meta name=\"ProgId\" content=\"Word.Document\">");
-                        sb.append("<meta name=\"Generator\" content=\"Microsoft Word 15\">");
-                        sb.append("<meta name=\"Originator\" content=\"Microsoft Word 15\">");
                         
-                        // 添加基本样式
+                        // 添加样式
                         sb.append("<style>");
-                        sb.append("@page{margin:1.0in 1.0in 1.0in 1.0in;}");
+                        sb.append(css);
+                        // 添加基本样式
                         sb.append("body{font-family:Arial,sans-serif; margin:0; padding:0;}");
-                        sb.append("table{border-collapse:collapse;}");
-                        sb.append("p{margin:0; padding:0;}");
                         sb.append("</style>");
-                        
-                        // 添加 Outlook 特定的 CSS
-                        sb.append("<!--[if gte mso 9]>");
-                        sb.append("<xml>");
-                        sb.append("<o:OfficeDocumentSettings>");
-                        sb.append("<o:AllowPNG/>");
-                        sb.append("</o:OfficeDocumentSettings>");
-                        sb.append("</xml>");
-                        sb.append("<![endif]-->");
                         
                         sb.append("</head>");
                         sb.append("<body>");
                         
-                        // 处理分栏布局
-                        String processedHtml = processLayout(html);
-                        sb.append(processedHtml);
+                        // 直接添加 HTML 内容，不做过多处理
+                        sb.append(html);
+                        
                         sb.append("</body></html>");
                         
                         content = sb.toString();
