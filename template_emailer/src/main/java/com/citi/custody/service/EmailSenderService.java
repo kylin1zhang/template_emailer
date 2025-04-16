@@ -164,28 +164,7 @@ public class EmailSenderService {
                         // 组合 HTML 和 CSS
                         StringBuilder sb = new StringBuilder();
                         sb.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\">");
-                        sb.append("<style>");
-                        sb.append(css);
-                        // 添加必要的默认样式
-                        sb.append("body{margin:0;padding:0;font-family:Arial,sans-serif;}");
-                        sb.append("table{border-collapse:collapse;width:100%;}");
-                        sb.append("img{max-width:100%;height:auto;}");
-                        sb.append(".align-left{text-align:left !important;}");
-                        sb.append(".align-center{text-align:center !important;}");
-                        sb.append(".align-right{text-align:right !important;}");
-                        // 添加分栏布局样式 - 使用表格布局替代 Flexbox
-                        sb.append(".gjs-row{width:100%;margin:0;padding:0;}");
-                        sb.append(".gjs-cell{vertical-align:top;padding:10px;}");
-                        sb.append(".gjs-cell[data-columns='2']{width:50%;}");
-                        sb.append(".gjs-cell[data-columns='3']{width:33.3333%;}");
-                        sb.append(".gjs-cell[data-columns='4']{width:25%;}");
-                        // 添加表格样式 - 使用更兼容的写法
-                        sb.append(".gjs-table{width:100%;border-collapse:collapse;margin:10px 0;}");
-                        sb.append(".gjs-table td,.gjs-table th{border:1px solid #ddd;padding:8px;text-align:left;}");
-                        sb.append(".gjs-table th{background-color:#f2f2f2;}");
-                        sb.append(".gjs-table tr:nth-child(even){background-color:#f9f9f9;}");
-                        sb.append("</style>");
-                        sb.append("</head><body>");
+                        sb.append("</head><body style=\"margin:0;padding:0;font-family:Arial,sans-serif;\">");
                         
                         // 处理分栏布局
                         String processedHtml = processLayout(html);
@@ -609,24 +588,27 @@ public class EmailSenderService {
         
         try {
             // 处理分栏布局 - 使用表格布局
-            html = html.replaceAll("class=\"gjs-row\"", "class=\"gjs-row\" style=\"width:100%;margin:0;padding:0;\"");
-            html = html.replaceAll("class=\"gjs-cell\"", "class=\"gjs-cell\" style=\"vertical-align:top;padding:10px;\"");
+            html = html.replaceAll("<div class=\"gjs-row\"", "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:100%;margin:0;padding:0;\">");
+            html = html.replaceAll("</div></div>", "</td></tr></table>");
+            html = html.replaceAll("<div class=\"gjs-cell\"", "<tr><td style=\"vertical-align:top;padding:10px;\"");
+            
+            // 处理分栏的列数
+            html = html.replaceAll("data-columns=\"2\"", "width=\"50%\"");
+            html = html.replaceAll("data-columns=\"3\"", "width=\"33%\"");
+            html = html.replaceAll("data-columns=\"4\"", "width=\"25%\"");
             
             // 处理表格 - 使用更兼容的写法
-            html = html.replaceAll("class=\"gjs-table\"", "class=\"gjs-table\" style=\"width:100%;border-collapse:collapse;margin:10px 0;\"");
+            html = html.replaceAll("<table class=\"gjs-table\"", "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"1\" style=\"width:100%;border-collapse:collapse;margin:10px 0;\"");
             html = html.replaceAll("<td", "<td style=\"border:1px solid #ddd;padding:8px;text-align:left;\"");
             html = html.replaceAll("<th", "<th style=\"border:1px solid #ddd;padding:8px;text-align:left;background-color:#f2f2f2;\"");
             
-            // 处理分栏的列数
-            html = html.replaceAll("data-columns=\"2\"", "style=\"width:50%;\"");
-            html = html.replaceAll("data-columns=\"3\"", "style=\"width:33.3333%;\"");
-            html = html.replaceAll("data-columns=\"4\"", "style=\"width:25%;\"");
+            // 处理图片
+            html = html.replaceAll("<img", "<img style=\"max-width:100%;height:auto;\"");
             
-            // 确保所有表格都使用表格布局
-            html = html.replaceAll("<div class=\"gjs-row\"", "<table class=\"gjs-row\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"");
-            html = html.replaceAll("</div></div>", "</td></tr></table>");
-            html = html.replaceAll("<div class=\"gjs-cell\"", "<tr><td class=\"gjs-cell\"");
-            html = html.replaceAll("</div>", "</td></tr>");
+            // 处理文本对齐
+            html = html.replaceAll("class=\"align-left\"", "style=\"text-align:left;\"");
+            html = html.replaceAll("class=\"align-center\"", "style=\"text-align:center;\"");
+            html = html.replaceAll("class=\"align-right\"", "style=\"text-align:right;\"");
             
             return html;
         } catch (Exception e) {
