@@ -173,9 +173,25 @@ public class EmailSenderService {
                         sb.append(".align-left{text-align:left !important;}");
                         sb.append(".align-center{text-align:center !important;}");
                         sb.append(".align-right{text-align:right !important;}");
+                        // 添加分栏布局样式
+                        sb.append(".gjs-row{display:flex;justify-content:flex-start;align-items:stretch;flex-wrap:nowrap;padding:10px;box-sizing:border-box;}");
+                        sb.append(".gjs-cell{min-height:75px;flex-grow:1;flex-basis:100%;}");
+                        sb.append(".gjs-cell[data-columns='2']{flex-basis:50%;}");
+                        sb.append(".gjs-cell[data-columns='3']{flex-basis:33.3333%;}");
+                        sb.append(".gjs-cell[data-columns='4']{flex-basis:25%;}");
+                        sb.append("@media screen and (max-width:768px){.gjs-row{flex-wrap:wrap;}.gjs-cell{flex-basis:100% !important;}}");
+                        // 添加表格样式
+                        sb.append(".gjs-table{width:100%;border-collapse:collapse;margin:10px 0;}");
+                        sb.append(".gjs-table td,.gjs-table th{border:1px solid #ddd;padding:8px;text-align:left;}");
+                        sb.append(".gjs-table th{background-color:#f2f2f2;}");
+                        sb.append(".gjs-table tr:nth-child(even){background-color:#f9f9f9;}");
+                        sb.append(".gjs-table tr:hover{background-color:#f5f5f5;}");
                         sb.append("</style>");
                         sb.append("</head><body>");
-                        sb.append(html);
+                        
+                        // 处理分栏布局
+                        String processedHtml = processLayout(html);
+                        sb.append(processedHtml);
                         sb.append("</body></html>");
                         
                         content = sb.toString();
@@ -582,6 +598,31 @@ public class EmailSenderService {
         } catch (Exception e) {
             logger.error("应用对齐样式时出错: {}", e.getMessage());
             return htmlContent; // 返回原始内容
+        }
+    }
+
+    /**
+     * 处理分栏布局
+     */
+    private String processLayout(String html) {
+        if (html == null || html.isEmpty()) {
+            return html;
+        }
+        
+        try {
+            // 处理分栏布局
+            html = html.replaceAll("class=\"gjs-row\"", "class=\"gjs-row\" style=\"display:flex;justify-content:flex-start;align-items:stretch;flex-wrap:nowrap;padding:10px;box-sizing:border-box;\"");
+            html = html.replaceAll("class=\"gjs-cell\"", "class=\"gjs-cell\" style=\"min-height:75px;flex-grow:1;flex-basis:100%;\"");
+            
+            // 处理表格
+            html = html.replaceAll("class=\"gjs-table\"", "class=\"gjs-table\" style=\"width:100%;border-collapse:collapse;margin:10px 0;\"");
+            html = html.replaceAll("<td", "<td style=\"border:1px solid #ddd;padding:8px;text-align:left;\"");
+            html = html.replaceAll("<th", "<th style=\"border:1px solid #ddd;padding:8px;text-align:left;background-color:#f2f2f2;\"");
+            
+            return html;
+        } catch (Exception e) {
+            logger.error("处理布局时出错: {}", e.getMessage());
+            return html;
         }
     }
 }
