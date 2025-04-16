@@ -163,8 +163,32 @@ public class EmailSenderService {
                         
                         // 组合 HTML 和 CSS
                         StringBuilder sb = new StringBuilder();
-                        sb.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\">");
-                        sb.append("</head><body style=\"margin:0;padding:0;font-family:Arial,sans-serif;\">");
+                        sb.append("<html xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:o=\"urn:schemas-microsoft-com:office:office\" xmlns:w=\"urn:schemas-microsoft-com:office:word\" xmlns:m=\"http://schemas.microsoft.com/office/2004/12/omml\" xmlns=\"http://www.w3.org/TR/REC-html40\">");
+                        sb.append("<head>");
+                        sb.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
+                        sb.append("<meta name=\"ProgId\" content=\"Word.Document\">");
+                        sb.append("<meta name=\"Generator\" content=\"Microsoft Word 15\">");
+                        sb.append("<meta name=\"Originator\" content=\"Microsoft Word 15\">");
+                        
+                        // 添加基本样式
+                        sb.append("<style>");
+                        sb.append("@page{margin:1.0in 1.0in 1.0in 1.0in;}");
+                        sb.append("body{font-family:Arial,sans-serif; margin:0; padding:0;}");
+                        sb.append("table{border-collapse:collapse;}");
+                        sb.append("p{margin:0; padding:0;}");
+                        sb.append("</style>");
+                        
+                        // 添加 Outlook 特定的 CSS
+                        sb.append("<!--[if gte mso 9]>");
+                        sb.append("<xml>");
+                        sb.append("<o:OfficeDocumentSettings>");
+                        sb.append("<o:AllowPNG/>");
+                        sb.append("</o:OfficeDocumentSettings>");
+                        sb.append("</xml>");
+                        sb.append("<![endif]-->");
+                        
+                        sb.append("</head>");
+                        sb.append("<body>");
                         
                         // 处理分栏布局
                         String processedHtml = processLayout(html);
@@ -587,9 +611,16 @@ public class EmailSenderService {
         }
         
         try {
+            // 移除可能导致 Outlook 显示原始代码的特殊字符
+            html = html.replace("<!DOCTYPE html>", "")
+                       .replace("<html lang=\"en\">", "")
+                       .replace("<head>", "")
+                       .replace("<meta charset=\"UTF-8\">", "")
+                       .replace("</head>", "");
+                
             // 处理分栏布局 - 使用表格布局
             html = html.replaceAll("<div class=\"gjs-row\"", "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:100%;margin:0;padding:0;\">");
-            html = html.replaceAll("</div></div>", "</td></tr></table>");
+            html = html.replaceAll("</div>", "</td></tr></table>");
             html = html.replaceAll("<div class=\"gjs-cell\"", "<tr><td style=\"vertical-align:top;padding:10px;\"");
             
             // 处理分栏的列数
@@ -598,7 +629,7 @@ public class EmailSenderService {
             html = html.replaceAll("data-columns=\"4\"", "width=\"25%\"");
             
             // 处理表格 - 使用更兼容的写法
-            html = html.replaceAll("<table class=\"gjs-table\"", "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"1\" style=\"width:100%;border-collapse:collapse;margin:10px 0;\"");
+            html = html.replaceAll("<table class=\"gjs-table\"", "<table width=\"100%\" cellpadding=\"8\" cellspacing=\"0\" border=\"1\" style=\"width:100%;border-collapse:collapse;margin:10px 0;border:1px solid #ddd;\"");
             html = html.replaceAll("<td", "<td style=\"border:1px solid #ddd;padding:8px;text-align:left;\"");
             html = html.replaceAll("<th", "<th style=\"border:1px solid #ddd;padding:8px;text-align:left;background-color:#f2f2f2;\"");
             
@@ -606,9 +637,12 @@ public class EmailSenderService {
             html = html.replaceAll("<img", "<img style=\"max-width:100%;height:auto;\"");
             
             // 处理文本对齐
-            html = html.replaceAll("class=\"align-left\"", "style=\"text-align:left;\"");
-            html = html.replaceAll("class=\"align-center\"", "style=\"text-align:center;\"");
-            html = html.replaceAll("class=\"align-right\"", "style=\"text-align:right;\"");
+            html = html.replaceAll("class=\"align-left\"", "align=\"left\" style=\"text-align:left;\"");
+            html = html.replaceAll("class=\"align-center\"", "align=\"center\" style=\"text-align:center;\"");
+            html = html.replaceAll("class=\"align-right\"", "align=\"right\" style=\"text-align:right;\"");
+            
+            // 处理文本格式化
+            html = html.replaceAll("<p", "<p style=\"margin:0;padding:0;\"");
             
             return html;
         } catch (Exception e) {
