@@ -173,19 +173,17 @@ public class EmailSenderService {
                         sb.append(".align-left{text-align:left !important;}");
                         sb.append(".align-center{text-align:center !important;}");
                         sb.append(".align-right{text-align:right !important;}");
-                        // 添加分栏布局样式
-                        sb.append(".gjs-row{display:flex;justify-content:flex-start;align-items:stretch;flex-wrap:nowrap;padding:10px;box-sizing:border-box;}");
-                        sb.append(".gjs-cell{min-height:75px;flex-grow:1;flex-basis:100%;}");
-                        sb.append(".gjs-cell[data-columns='2']{flex-basis:50%;}");
-                        sb.append(".gjs-cell[data-columns='3']{flex-basis:33.3333%;}");
-                        sb.append(".gjs-cell[data-columns='4']{flex-basis:25%;}");
-                        sb.append("@media screen and (max-width:768px){.gjs-row{flex-wrap:wrap;}.gjs-cell{flex-basis:100% !important;}}");
-                        // 添加表格样式
+                        // 添加分栏布局样式 - 使用表格布局替代 Flexbox
+                        sb.append(".gjs-row{width:100%;margin:0;padding:0;}");
+                        sb.append(".gjs-cell{vertical-align:top;padding:10px;}");
+                        sb.append(".gjs-cell[data-columns='2']{width:50%;}");
+                        sb.append(".gjs-cell[data-columns='3']{width:33.3333%;}");
+                        sb.append(".gjs-cell[data-columns='4']{width:25%;}");
+                        // 添加表格样式 - 使用更兼容的写法
                         sb.append(".gjs-table{width:100%;border-collapse:collapse;margin:10px 0;}");
                         sb.append(".gjs-table td,.gjs-table th{border:1px solid #ddd;padding:8px;text-align:left;}");
                         sb.append(".gjs-table th{background-color:#f2f2f2;}");
                         sb.append(".gjs-table tr:nth-child(even){background-color:#f9f9f9;}");
-                        sb.append(".gjs-table tr:hover{background-color:#f5f5f5;}");
                         sb.append("</style>");
                         sb.append("</head><body>");
                         
@@ -610,14 +608,25 @@ public class EmailSenderService {
         }
         
         try {
-            // 处理分栏布局
-            html = html.replaceAll("class=\"gjs-row\"", "class=\"gjs-row\" style=\"display:flex;justify-content:flex-start;align-items:stretch;flex-wrap:nowrap;padding:10px;box-sizing:border-box;\"");
-            html = html.replaceAll("class=\"gjs-cell\"", "class=\"gjs-cell\" style=\"min-height:75px;flex-grow:1;flex-basis:100%;\"");
+            // 处理分栏布局 - 使用表格布局
+            html = html.replaceAll("class=\"gjs-row\"", "class=\"gjs-row\" style=\"width:100%;margin:0;padding:0;\"");
+            html = html.replaceAll("class=\"gjs-cell\"", "class=\"gjs-cell\" style=\"vertical-align:top;padding:10px;\"");
             
-            // 处理表格
+            // 处理表格 - 使用更兼容的写法
             html = html.replaceAll("class=\"gjs-table\"", "class=\"gjs-table\" style=\"width:100%;border-collapse:collapse;margin:10px 0;\"");
             html = html.replaceAll("<td", "<td style=\"border:1px solid #ddd;padding:8px;text-align:left;\"");
             html = html.replaceAll("<th", "<th style=\"border:1px solid #ddd;padding:8px;text-align:left;background-color:#f2f2f2;\"");
+            
+            // 处理分栏的列数
+            html = html.replaceAll("data-columns=\"2\"", "style=\"width:50%;\"");
+            html = html.replaceAll("data-columns=\"3\"", "style=\"width:33.3333%;\"");
+            html = html.replaceAll("data-columns=\"4\"", "style=\"width:25%;\"");
+            
+            // 确保所有表格都使用表格布局
+            html = html.replaceAll("<div class=\"gjs-row\"", "<table class=\"gjs-row\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"");
+            html = html.replaceAll("</div></div>", "</td></tr></table>");
+            html = html.replaceAll("<div class=\"gjs-cell\"", "<tr><td class=\"gjs-cell\"");
+            html = html.replaceAll("</div>", "</td></tr>");
             
             return html;
         } catch (Exception e) {
