@@ -1,0 +1,87 @@
+/* Override GrapesJS default styles */
+.gjs-cv-canvas {
+  background-color: #f0f0f0 !important; /* change canvas background color */
+}
+
+.gjs-one-bg {
+  background-color: #ced4da;
+}
+
+.gjs-two-color {
+  color: #6c757d;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px; /* reduce padding */
+  background-color: #e8f9fa;
+  height: 40px; /* limit overall height */
+  overflow: visible;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toolbar-left label {
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1.5; /* ensure label is vertically centered */
+}
+
+.toolbar-left input {
+  padding: 5px 10px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  outline: none;
+  font-size: 14px;
+  height: 30px;
+  line-height: 1.5;
+  background-color: #ffffff;
+  margin: 0; /* ensure no margin around the input */
+  box-sizing: border-box; /* ensure border and padding are included in the width calculation */
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.toolbar-left input:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
+.toolbar-right {
+  display: flex;
+  gap: 10px;
+}
+
+.toolbar-right button {
+  padding: 5px 15px;
+  font-size: 14px;
+  font-weight: bold;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  height: 30px; /* ensure button height matches input */
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.toolbar-right button:first-child {
+  background-color: #6c757d;
+  color: #ffffff;
+}
+
+.toolbar-right button:first-child:hover {
+  background-color: #5a6268;
+}
+
+.toolbar-right button:last-child {
+  background-color: #007bff;
+  color: #ffffff;
+}
+
+.toolbar-right button:last-child:hover {
+  background-color: #0056b3;
+}

@@ -142,94 +142,43 @@ public class EmailSenderService {
 
             // Set content from template or default content
             String content = "This is an automated email.";
-            try {
-                if (template != null) {
+            if (template != null) {
+                try {
                     if (template.getContent() != null) {
-                        logger.info("处理模板内容（ID: {}）开始处理，内容长度: {}", 
-                            template.getId(), template.getContent().length());
+                        // 解析 GrapesJS 生成的 JSON 格式
+                        ObjectMapper objectMapper = new ObjectMapper();
+                        JsonNode rootNode = objectMapper.readTree(template.getContent());
                         
-                        // 判断JSON格式有效性
-                        boolean isValidJson = isValidJson(template.getContent());
-                        if (!isValidJson) {
-                            logger.warn("模板内容不是有效的JSON格式，尝试修复");
-                            template.setContent(fixJsonFormat(template.getContent()));
+                        // 从 JSON 中提取 HTML 和 CSS
+                        String html = "";
+                        String css = "";
+                        
+                        if (rootNode.has("html")) {
+                            html = rootNode.get("html").asText();
                         }
                         
-                        // 分析原始JSON模板内容
-                        analyzeHtmlContent(template.getContent(), "原始JSON");
-                        
-                        // 先检查模板内容是否包含原始HTML内容
-                        boolean containsHtml = JsonToHtmlConverter.containsHtmlContent(template.getContent());
-                        logger.info("模板内容包含原始HTML: {}", containsHtml);
-                        
-                        if (containsHtml) {
-                            // 提取原始HTML内容
-                            String rawHtml = JsonToHtmlConverter.extractRawHtmlContent(template.getContent());
-                            if (rawHtml != null && !rawHtml.isEmpty()) {
-                                logger.info("已提取原始HTML内容，长度: {}", rawHtml.length());
-                                
-                                // 检查是否需要包装HTML内容
-                                if (!rawHtml.toLowerCase().contains("<html") || !rawHtml.toLowerCase().contains("</html>") || 
-                                    !rawHtml.toLowerCase().contains("<body") || !rawHtml.toLowerCase().contains("</body>")) {
-                                    logger.info("原始HTML内容缺少完整HTML结构，将进行包装");
-                                    // 添加基本HTML结构和CSS样式
-                                    StringBuilder sb = new StringBuilder();
-                                    sb.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\">");
-                                    // 添加必要的样式
-                                    sb.append("<style>");
-                                    sb.append("body{margin:0;padding:0;font-family:Arial,sans-serif;}");
-                                    sb.append("table{border-collapse:collapse;width:100%;}");
-                                    sb.append("img{max-width:100%;height:auto;}");
-                                    sb.append(".align-left{text-align:left;}");
-                                    sb.append(".align-center{text-align:center;}");
-                                    sb.append(".align-right{text-align:right;}");
-                                    sb.append("</style>");
-                                    sb.append("</head><body>");
-                                    sb.append(rawHtml);
-                                    sb.append("</body></html>");
-                                    content = sb.toString();
-                                } else {
-                                    content = rawHtml;
-                                }
-                                
-                                // 分析处理后的HTML内容
-                                analyzeHtmlContent(content, "提取的原始HTML");
-                            } else {
-                                logger.warn("包含HTML类型节点但无法提取内容，将使用标准转换");
-                                // 尝试使用增强的转换方法
-                                content = JsonToHtmlConverter.convertJsonToHtml(template.getContent());
-                            }
-                        } else {
-                            // 使用标准转换
-                            content = JsonToHtmlConverter.convertJsonToHtml(template.getContent());
+                        if (rootNode.has("css")) {
+                            css = rootNode.get("css").asText();
                         }
                         
-                        // 分析转换后的HTML内容
-                        analyzeHtmlContent(content, "转换后HTML");
+                        // 组合 HTML 和 CSS
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\">");
+                        sb.append("<style>");
+                        sb.append(css);
+                        // 添加必要的默认样式
+                        sb.append("body{margin:0;padding:0;font-family:Arial,sans-serif;}");
+                        sb.append("table{border-collapse:collapse;width:100%;}");
+                        sb.append("img{max-width:100%;height:auto;}");
+                        sb.append(".align-left{text-align:left !important;}");
+                        sb.append(".align-center{text-align:center !important;}");
+                        sb.append(".align-right{text-align:right !important;}");
+                        sb.append("</style>");
+                        sb.append("</head><body>");
+                        sb.append(html);
+                        sb.append("</body></html>");
                         
-                        logger.debug("Template content converted successfully, length: {}", content.length());
-                        
-                        // 检查转换后的内容是否包含完整的HTML结构
-                        if (!content.contains("<html") || !content.contains("<body")) {
-                            logger.warn("Converted HTML missing proper structure, attempting to fix");
-                            
-                            // 添加完整的HTML结构
-                            StringBuilder sb = new StringBuilder();
-                            sb.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\">");
-                            // 添加必要的样式
-                            sb.append("<style>");
-                            sb.append("body{margin:0;padding:0;font-family:Arial,sans-serif;}");
-                            sb.append("table{border-collapse:collapse;width:100%;}");
-                            sb.append("img{max-width:100%;height:auto;}");
-                            sb.append(".align-left{text-align:left !important;}");
-                            sb.append(".align-center{text-align:center !important;}");
-                            sb.append(".align-right{text-align:right !important;}");
-                            sb.append("</style>");
-                            sb.append("</head><body>");
-                            sb.append(content);
-                            sb.append("</body></html>");
-                            content = sb.toString();
-                        }
+                        content = sb.toString();
                         
                         // 确保内容中对表格、图片和文本的对齐方式正确应用
                         content = ensureAlignmentStyles(content);
@@ -237,14 +186,11 @@ public class EmailSenderService {
                         logger.warn("Template {} has null content, using default content for email: {}", 
                             template.getId(), email.getId());
                     }
-                } else {
-                    logger.warn("No template found for templateId: {}, using default content for email: {}", 
-                        email.getContentTemplateId(), email.getId());
+                } catch (Exception e) {
+                    logger.error("Error converting template content to HTML for email {}: {}", 
+                        email.getId(), e.getMessage(), e);
+                    content = "<html><body><p>Error parsing template: " + e.getMessage() + "</p></body></html>";
                 }
-            } catch (Exception e) {
-                logger.error("Error converting template content to HTML for email {}: {}", 
-                    email.getId(), e.getMessage(), e);
-                content = "<html><body><p>Error parsing template: " + e.getMessage() + "</p></body></html>";
             }
             
             // 设置邮件内容
