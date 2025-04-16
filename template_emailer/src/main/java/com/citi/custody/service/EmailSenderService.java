@@ -613,16 +613,19 @@ public class EmailSenderService {
                        .replace("</head>", "");
                 
             // 处理分栏布局 - 使用表格布局
+            // 修复分栏显示为上下而非左右的问题
             html = html.replaceAll("<div class=\"gjs-row\"", "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:100%;margin:0;padding:0;\">");
-            html = html.replaceAll("</div>", "</td></tr></table>");
-            html = html.replaceAll("<div class=\"gjs-cell\"", "<tr><td style=\"vertical-align:top;padding:10px;\"");
+            html = html.replaceAll("</div>", "</td></table>");
+            
+            // 修改：将cell转换为td，保留在同一行中（使用colspan处理单列的情况）
+            html = html.replaceAll("<div class=\"gjs-cell\"", "<td valign=\"top\" style=\"vertical-align:top;padding:10px;\"");
             
             // 处理分栏的列数
             html = html.replaceAll("data-columns=\"2\"", "width=\"50%\"");
             html = html.replaceAll("data-columns=\"3\"", "width=\"33%\"");
             html = html.replaceAll("data-columns=\"4\"", "width=\"25%\"");
             
-            // 处理表格 - 使用更兼容的写法
+            // 处理表格 - 使用更兼容的写法，不强制第一行居中
             html = html.replaceAll("<table class=\"gjs-table\"", "<table width=\"100%\" cellpadding=\"8\" cellspacing=\"0\" border=\"1\" style=\"width:100%;border-collapse:collapse;margin:10px 0;border:1px solid #ddd;\"");
             html = html.replaceAll("<td", "<td style=\"border:1px solid #ddd;padding:8px;text-align:left;\"");
             html = html.replaceAll("<th", "<th style=\"border:1px solid #ddd;padding:8px;text-align:left;background-color:#f2f2f2;\"");
@@ -630,7 +633,7 @@ public class EmailSenderService {
             // 处理图片
             html = html.replaceAll("<img", "<img style=\"max-width:100%;height:auto;\"");
             
-            // 处理文本对齐
+            // 处理文本对齐，只处理明确设置了对齐的元素
             html = html.replaceAll("class=\"align-left\"", "align=\"left\" style=\"text-align:left;\"");
             html = html.replaceAll("class=\"align-center\"", "align=\"center\" style=\"text-align:center;\"");
             html = html.replaceAll("class=\"align-right\"", "align=\"right\" style=\"text-align:right;\"");
