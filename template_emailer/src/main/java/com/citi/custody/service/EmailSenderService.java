@@ -167,32 +167,34 @@ public class EmailSenderService {
                             css = rootNode.get("css").asText();
                         }
                         
+                        // 清理HTML内容，移除可能导致问题的标记
+                        html = cleanHtml(html);
+                        
+                        // 构建简单的HTML邮件内容
                         StringBuilder sb = new StringBuilder();
                         sb.append("<!DOCTYPE html>");
                         sb.append("<html>");
                         sb.append("<head>");
                         sb.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
-                        
-                        // 添加来自JSON的CSS样式和基本样式
-                        sb.append("<style>");
+                        sb.append("<style type=\"text/css\">");
+                        // 添加基本样式和从JSON获取的CSS
+                        sb.append("body { margin: 0; padding: 0; font-family: Arial, sans-serif; }");
+                        sb.append("table { border-collapse: collapse; width: 100%; }");
+                        sb.append("th { background-color: #f2f2f2; text-align: left; padding: 8px; border: 1px solid #ddd; }");
+                        sb.append("td { padding: 8px; text-align: left; border: 1px solid #ddd; }");
+                        sb.append("img { max-width: 100%; height: auto; }");
                         sb.append(css);
                         sb.append("</style>");
-                        
                         sb.append("</head>");
                         sb.append("<body>");
-                        
-                        // 直接使用原始HTML内容
                         sb.append(html);
-                        
-                        sb.append("</body></html>");
+                        sb.append("</body>");
+                        sb.append("</html>");
                         
                         content = sb.toString();
                         
-                        // 移除开头的格式标记
-                        content = content.replaceAll("B̲|I̲|U̲|S̲|/|_|x", "");
-                        
-                        // 确保内容中对表格、图片和文本的对齐方式正确应用
-                        content = ensureAlignmentStyles(content);
+                        // 记录最终生成的内容长度
+                        logger.info("Final HTML content length: {}", content.length());
                     } else {
                         logger.warn("Template {} has null content, using default content for email: {}", 
                             template.getId(), email.getId());
@@ -278,7 +280,7 @@ public class EmailSenderService {
     }
 
     /**
-     * 递归处理JSON节点中的所有图片
+     * 查找并处理所有图片节点
      */
     private void processImagesInJsonNode(JsonNode node, MimeMessageHelper helper, String imageResourcePath) throws Exception {
         if (node == null) {
@@ -297,11 +299,12 @@ public class EmailSenderService {
             // 处理图片节点
             if ("image".equals(nodeType) && node.has("values") && node.path("values").has("src")) {
                 String imageUrl = node.path("values").path("src").asText();
-                if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://") && !imageUrl.startsWith("data:")) {
+                if (imageUrl != null && !imageUrl.isEmpty()) {
                     String imgFileName = getFileNameFromPath(imageUrl);
                     if (imgFileName != null && !imgFileName.isEmpty()) {
                         String contentId = generateContentId(imgFileName);
                         processImageFile(imgFileName, imageUrl, contentId, helper, imageResourcePath);
+                        logger.info("处理图片节点: {}, contentId: {}", imgFileName, contentId);
                     }
                 }
             }
@@ -319,7 +322,7 @@ public class EmailSenderService {
         }
     }
 
-    // 添加新方法：处理HTML内容中的图片
+    // 处理HTML内容中的图片
     private void processImagesInHtml(String htmlContent, MimeMessageHelper helper, String imageResourcePath) throws Exception {
         if (htmlContent == null || htmlContent.isEmpty()) {
             return;
@@ -331,13 +334,24 @@ public class EmailSenderService {
         
         while (matcher.find()) {
             String imageUrl = matcher.group(1);
-            // 只处理本地图片（非http/https/data:开头的URL）
-            if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://") && !imageUrl.startsWith("data:")) {
-                String imgFileName = getFileNameFromPath(imageUrl);
-                if (imgFileName != null && !imgFileName.isEmpty()) {
-                    String contentId = generateContentId(imgFileName);
-                    logger.debug("Found image in HTML: {}, contentId: {}", imgFileName, contentId);
+            logger.info("Found image URL in HTML: {}", imageUrl);
+            
+            if (imageUrl.startsWith("data:")) {
+                // 对于data URL格式的图片，不需要特殊处理
+                logger.info("Skipping data URL image");
+                continue;
+            }
+            
+            // 处理图片
+            String imgFileName = getFileNameFromPath(imageUrl);
+            if (imgFileName != null && !imgFileName.isEmpty()) {
+                String contentId = generateContentId(imgFileName);
+                logger.info("Creating contentId for image: {} -> {}", imgFileName, contentId);
+                
+                try {
                     processImageFile(imgFileName, imageUrl, contentId, helper, imageResourcePath);
+                } catch (Exception e) {
+                    logger.warn("Failed to process image {}: {}", imgFileName, e.getMessage());
                 }
             }
         }
@@ -593,6 +607,37 @@ public class EmailSenderService {
         } catch (Exception e) {
             logger.error("应用对齐样式时出错: {}", e.getMessage());
             return htmlContent; // 返回原始内容
+        }
+    }
+
+    /**
+     * 清理HTML内容
+     */
+    private String cleanHtml(String html) {
+        if (html == null || html.isEmpty()) {
+            return html;
+        }
+        
+        try {
+            // 移除HTML开头的特殊字符（B/I/U/S和其他格式标记）
+            html = html.replaceAll("^\\s*(?:B̲|I̲|U̲|S̲|/|_|x)+\\s*", "");
+            
+            // 移除多余的div容器和编辑器标记
+            html = html.replaceAll("<div[^>]*gjs-editor[^>]*>.*?<div[^>]*gjs-cv-canvas[^>]*>", "");
+            html = html.replaceAll("<div[^>]*id=\"gjs-cv-tools\"[^>]*>.*?</div></div></div>", "");
+            
+            // 移除所有pointer-events相关的内联样式
+            html = html.replaceAll("pointer-events:[^;\"']*;?", "");
+            
+            // 移除MIME分隔标记
+            html = html.replaceAll("------=_Part_[^\\r\\n]*", "");
+            html = html.replaceAll("Content-Type: [^\\r\\n]*", "");
+            html = html.replaceAll("Content-Transfer-Encoding: [^\\r\\n]*", "");
+            
+            return html;
+        } catch (Exception e) {
+            logger.error("清理HTML内容时出错: {}", e.getMessage());
+            return html;
         }
     }
 }
