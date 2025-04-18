@@ -167,33 +167,29 @@ public class EmailSenderService {
                             css = rootNode.get("css").asText();
                         }
                         
-                        // 移除B/I/U/S标记
-                        html = html.replaceAll("B̲|I̲|U̲|S̲|/|_/|_", "");
-                        
-                        // 简化 HTML 组合方式，使用更基本的结构
                         StringBuilder sb = new StringBuilder();
                         sb.append("<!DOCTYPE html>");
                         sb.append("<html>");
                         sb.append("<head>");
                         sb.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
                         
-                        // 添加样式
+                        // 添加来自JSON的CSS样式和基本样式
                         sb.append("<style>");
-                        // 添加表格样式，确保表格边框显示正确
-                        sb.append("table { border-collapse: collapse; width: 100%; }");
-                        sb.append("td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; }");
-                        sb.append("th { background-color: #f2f2f2; }");
+                        sb.append(css);
                         sb.append("</style>");
                         
                         sb.append("</head>");
                         sb.append("<body>");
                         
-                        // 直接添加处理过的 HTML 内容
+                        // 直接使用原始HTML内容
                         sb.append(html);
                         
                         sb.append("</body></html>");
                         
                         content = sb.toString();
+                        
+                        // 移除开头的格式标记
+                        content = content.replaceAll("B̲|I̲|U̲|S̲|/|_|x", "");
                         
                         // 确保内容中对表格、图片和文本的对齐方式正确应用
                         content = ensureAlignmentStyles(content);
