@@ -170,32 +170,65 @@ public class EmailSenderService {
                         // 组合 HTML 和 CSS - 使用更简单的方式
                         StringBuilder sb = new StringBuilder();
                         sb.append("<!DOCTYPE html>");
-                        sb.append("<html>");
+                        sb.append("<html xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:o=\"urn:schemas-microsoft-com:office:office\" xmlns:w=\"urn:schemas-microsoft-com:office:word\">");
                         sb.append("<head>");
                         sb.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
+                        sb.append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
+                        sb.append("<meta name=\"format-detection\" content=\"telephone=no\">");
                         
-                        // 添加样式
-                        sb.append("<style>");
-                        sb.append(css);
+                        // 添加Outlook专用标记
+                        sb.append("<!--[if mso]>");
+                        sb.append("<xml>");
+                        sb.append("<o:OfficeDocumentSettings>");
+                        sb.append("<o:AllowPNG/>");
+                        sb.append("<o:PixelsPerInch>96</o:PixelsPerInch>");
+                        sb.append("</o:OfficeDocumentSettings>");
+                        sb.append("</xml>");
+                        sb.append("<![endif]-->");
+                        
+                        // 添加样式，使用table布局
+                        sb.append("<style type=\"text/css\">");
+                        // 移除富文本编辑器符号
+                        sb.append("b, strong { font-weight: normal !important; }");
+                        sb.append("i, em { font-style: normal !important; }");
+                        sb.append("u { text-decoration: none !important; }");
+                        sb.append("s, strike { text-decoration: none !important; }");
                         // 添加基本样式
-                        sb.append("body{font-family:Arial,sans-serif; margin:0; padding:0;}");
-                        // 添加分栏布局样式
-                        sb.append(".one-column{display:table; width:100%;}");
-                        sb.append(".one-column .column{display:table-cell; width:100%;}");
-                        sb.append(".two-column{display:table; width:100%;}");
-                        sb.append(".two-column .column{display:table-cell; width:50%;}");
-                        // 表格样式
-                        sb.append("table.gjs-table{width:100%; border-collapse:collapse;}");
-                        sb.append("table.gjs-table td{border:1px solid #ddd; padding:8px; text-align:left;}");
-                        sb.append("table.gjs-table th{border:1px solid #ddd; padding:8px; text-align:left; background-color:#f2f2f2;}");
+                        sb.append("body, div, p, h1, h2, h3, h4, h5, h6 { margin: 0; padding: 0; }");
+                        sb.append("body { font-family: Arial, sans-serif; }");
+                        sb.append("table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }");
+                        sb.append("table td { border-collapse: collapse; }");
+                        sb.append("img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }");
+                        
+                        // 添加两栏布局样式
+                        sb.append(".two-column { width: 100%; max-width: 600px; }");
+                        sb.append(".two-column .column { width: 50%; display: inline-block; vertical-align: top; }");
+                        
+                        // 添加表格样式
+                        sb.append("table.data-table { width: 100%; border: 1px solid #ddd; }");
+                        sb.append("table.data-table th { background-color: #f2f2f2; text-align: left; padding: 8px; border: 1px solid #ddd; }");
+                        sb.append("table.data-table td { padding: 8px; text-align: left; border: 1px solid #ddd; }");
+                        
+                        // 添加用户自定义样式
+                        sb.append(css);
+                        
                         sb.append("</style>");
-                        
                         sb.append("</head>");
-                        sb.append("<body>");
+                        sb.append("<body style=\"margin:0;padding:0;background-color:#ffffff;\">");
                         
-                        // 直接添加 HTML 内容，不做过多处理
-                        String processedHtml = processLayout(html);
+                        // 使用表格作为主容器
+                        sb.append("<table role=\"presentation\" width=\"100%\" border=\"0\" cellspacing=\"0\" cellpadding=\"0\">");
+                        sb.append("<tr><td align=\"center\" style=\"padding:20px 0;\">");
+                        sb.append("<table role=\"presentation\" width=\"600\" border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"center\">");
+                        sb.append("<tr><td align=\"left\" style=\"padding:0 10px;\">");
+                        
+                        // 处理HTML内容，特别处理分栏和表格
+                        String processedHtml = processHtmlContent2(html);
                         sb.append(processedHtml);
+                        
+                        // 关闭主容器表格
+                        sb.append("</td></tr></table>");
+                        sb.append("</td></tr></table>");
                         
                         sb.append("</body></html>");
                         
@@ -607,39 +640,52 @@ public class EmailSenderService {
     }
 
     /**
-     * 处理分栏布局
+     * 处理HTML内容，特别确保Outlook兼容性
      */
-    private String processLayout(String html) {
+    private String processHtmlContent2(String html) {
         if (html == null || html.isEmpty()) {
             return html;
         }
         
         try {
-            // 处理一栏布局
-            html = html.replaceAll("<div class=\"one-column\"", "<table class=\"one-column\" width=\"100%\" cellspacing=\"0\" cellpadding=\"10\" border=\"0\"");
-            html = html.replaceAll("<div class=\"column\"", "<tr><td class=\"column\"");
+            // 移除HTML格式标签和控制字符
+            html = html.replaceAll("\\r\\n|\\r|\\n", ""); // 移除换行符
+            html = html.replaceAll("\\t", " "); // 替换制表符为空格
+            html = html.replaceAll("\\s{2,}", " "); // 多个连续空格替换为一个
+            html = html.replaceAll("<!--.*?-->", ""); // 移除HTML注释
             
-            // 处理两栏布局
-            html = html.replaceAll("<div class=\"two-column\"", "<table class=\"two-column\" width=\"100%\" cellspacing=\"0\" cellpadding=\"10\" border=\"0\"");
+            // 移除常见的富文本编辑器标记
+            html = html.replaceAll("B̲|I̲|U̲|S̲|/|_/|\\^_", ""); // 去除格式标记如B/I/U
             
-            // 确保 column 类的 div 转换为 table 单元格
-            html = html.replaceAll("<div class=\"column\"", "<td class=\"column\"");
-            html = html.replaceAll("</div></div>", "</td></tr></table>");
+            // 正确处理两栏布局
+            if (html.contains("two-column")) {
+                html = html.replaceAll("<div class=\"two-column\"[^>]*>", 
+                      "<table class=\"two-column\" width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr>");
+                html = html.replaceAll("<div class=\"column\"[^>]*>", 
+                      "<td class=\"column\" width=\"50%\" valign=\"top\" style=\"padding:10px;\">");
+                html = html.replaceAll("</div>\\s*</div>", "</td></tr></table>");
+            }
             
-            // 移除多余的关闭标签
-            html = html.replaceAll("</div>", "");
+            // 优化表格显示
+            if (html.contains("<table")) {
+                // 实现嵌套表格正确显示
+                html = html.replaceAll("<table(?![^>]*class=\"two-column\")", 
+                      "<table class=\"data-table\" width=\"100%\" border=\"1\" cellpadding=\"8\" cellspacing=\"0\"");
+                
+                // 确保表格单元格样式一致
+                html = html.replaceAll("<td(?![^>]*style)", "<td style=\"padding:8px; border:1px solid #ddd;\"");
+                html = html.replaceAll("<th(?![^>]*style)", "<th style=\"padding:8px; border:1px solid #ddd; background-color:#f2f2f2;\"");
+            }
             
-            // 处理表格
-            html = html.replaceAll("<table", "<table cellspacing=\"0\" cellpadding=\"8\" border=\"1\" style=\"width:100%; border-collapse:collapse;\"");
-            html = html.replaceAll("<td", "<td style=\"border:1px solid #ddd; padding:8px; text-align:left;\"");
-            html = html.replaceAll("<th", "<th style=\"border:1px solid #ddd; padding:8px; text-align:left; background-color:#f2f2f2;\"");
+            // 确保图片正确显示
+            html = html.replaceAll("<img(?![^>]*style)", "<img style=\"border:0; display:block; max-width:100%;\"");
             
-            // 处理图片
-            html = html.replaceAll("<img", "<img style=\"max-width:100%; height:auto;\"");
+            // 确保链接颜色正确
+            html = html.replaceAll("<a(?![^>]*style)", "<a style=\"color:#0066cc;\"");
             
             return html;
         } catch (Exception e) {
-            logger.error("处理布局时出错: {}", e.getMessage());
+            logger.error("处理HTML内容时出错: {}", e.getMessage(), e);
             return html;
         }
     }
