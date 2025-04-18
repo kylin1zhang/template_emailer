@@ -167,68 +167,29 @@ public class EmailSenderService {
                             css = rootNode.get("css").asText();
                         }
                         
-                        // 组合 HTML 和 CSS - 使用更简单的方式
+                        // 移除B/I/U/S标记
+                        html = html.replaceAll("B̲|I̲|U̲|S̲|/|_/|_", "");
+                        
+                        // 简化 HTML 组合方式，使用更基本的结构
                         StringBuilder sb = new StringBuilder();
                         sb.append("<!DOCTYPE html>");
-                        sb.append("<html xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:o=\"urn:schemas-microsoft-com:office:office\" xmlns:w=\"urn:schemas-microsoft-com:office:word\">");
+                        sb.append("<html>");
                         sb.append("<head>");
                         sb.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
-                        sb.append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
-                        sb.append("<meta name=\"format-detection\" content=\"telephone=no\">");
                         
-                        // 添加Outlook专用标记
-                        sb.append("<!--[if mso]>");
-                        sb.append("<xml>");
-                        sb.append("<o:OfficeDocumentSettings>");
-                        sb.append("<o:AllowPNG/>");
-                        sb.append("<o:PixelsPerInch>96</o:PixelsPerInch>");
-                        sb.append("</o:OfficeDocumentSettings>");
-                        sb.append("</xml>");
-                        sb.append("<![endif]-->");
-                        
-                        // 添加样式，使用table布局
-                        sb.append("<style type=\"text/css\">");
-                        // 移除富文本编辑器符号
-                        sb.append("b, strong { font-weight: normal !important; }");
-                        sb.append("i, em { font-style: normal !important; }");
-                        sb.append("u { text-decoration: none !important; }");
-                        sb.append("s, strike { text-decoration: none !important; }");
-                        // 添加基本样式
-                        sb.append("body, div, p, h1, h2, h3, h4, h5, h6 { margin: 0; padding: 0; }");
-                        sb.append("body { font-family: Arial, sans-serif; }");
-                        sb.append("table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }");
-                        sb.append("table td { border-collapse: collapse; }");
-                        sb.append("img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }");
-                        
-                        // 添加两栏布局样式
-                        sb.append(".two-column { width: 100%; max-width: 600px; }");
-                        sb.append(".two-column .column { width: 50%; display: inline-block; vertical-align: top; }");
-                        
-                        // 添加表格样式
-                        sb.append("table.data-table { width: 100%; border: 1px solid #ddd; }");
-                        sb.append("table.data-table th { background-color: #f2f2f2; text-align: left; padding: 8px; border: 1px solid #ddd; }");
-                        sb.append("table.data-table td { padding: 8px; text-align: left; border: 1px solid #ddd; }");
-                        
-                        // 添加用户自定义样式
-                        sb.append(css);
-                        
+                        // 添加样式
+                        sb.append("<style>");
+                        // 添加表格样式，确保表格边框显示正确
+                        sb.append("table { border-collapse: collapse; width: 100%; }");
+                        sb.append("td, th { border: 1px solid #dddddd; text-align: left; padding: 8px; }");
+                        sb.append("th { background-color: #f2f2f2; }");
                         sb.append("</style>");
+                        
                         sb.append("</head>");
-                        sb.append("<body style=\"margin:0;padding:0;background-color:#ffffff;\">");
+                        sb.append("<body>");
                         
-                        // 使用表格作为主容器
-                        sb.append("<table role=\"presentation\" width=\"100%\" border=\"0\" cellspacing=\"0\" cellpadding=\"0\">");
-                        sb.append("<tr><td align=\"center\" style=\"padding:20px 0;\">");
-                        sb.append("<table role=\"presentation\" width=\"600\" border=\"0\" cellspacing=\"0\" cellpadding=\"0\" align=\"center\">");
-                        sb.append("<tr><td align=\"left\" style=\"padding:0 10px;\">");
-                        
-                        // 处理HTML内容，特别处理分栏和表格
-                        String processedHtml = processHtmlContent2(html);
-                        sb.append(processedHtml);
-                        
-                        // 关闭主容器表格
-                        sb.append("</td></tr></table>");
-                        sb.append("</td></tr></table>");
+                        // 直接添加处理过的 HTML 内容
+                        sb.append(html);
                         
                         sb.append("</body></html>");
                         
@@ -636,57 +597,6 @@ public class EmailSenderService {
         } catch (Exception e) {
             logger.error("应用对齐样式时出错: {}", e.getMessage());
             return htmlContent; // 返回原始内容
-        }
-    }
-
-    /**
-     * 处理HTML内容，特别确保Outlook兼容性
-     */
-    private String processHtmlContent2(String html) {
-        if (html == null || html.isEmpty()) {
-            return html;
-        }
-        
-        try {
-            // 移除HTML格式标签和控制字符
-            html = html.replaceAll("\\r\\n|\\r|\\n", ""); // 移除换行符
-            html = html.replaceAll("\\t", " "); // 替换制表符为空格
-            html = html.replaceAll("\\s{2,}", " "); // 多个连续空格替换为一个
-            html = html.replaceAll("<!--.*?-->", ""); // 移除HTML注释
-            
-            // 移除常见的富文本编辑器标记
-            html = html.replaceAll("B̲|I̲|U̲|S̲|/|_/|\\^_", ""); // 去除格式标记如B/I/U
-            
-            // 正确处理两栏布局
-            if (html.contains("two-column")) {
-                html = html.replaceAll("<div class=\"two-column\"[^>]*>", 
-                      "<table class=\"two-column\" width=\"100%\" border=\"0\" cellpadding=\"0\" cellspacing=\"0\"><tr>");
-                html = html.replaceAll("<div class=\"column\"[^>]*>", 
-                      "<td class=\"column\" width=\"50%\" valign=\"top\" style=\"padding:10px;\">");
-                html = html.replaceAll("</div>\\s*</div>", "</td></tr></table>");
-            }
-            
-            // 优化表格显示
-            if (html.contains("<table")) {
-                // 实现嵌套表格正确显示
-                html = html.replaceAll("<table(?![^>]*class=\"two-column\")", 
-                      "<table class=\"data-table\" width=\"100%\" border=\"1\" cellpadding=\"8\" cellspacing=\"0\"");
-                
-                // 确保表格单元格样式一致
-                html = html.replaceAll("<td(?![^>]*style)", "<td style=\"padding:8px; border:1px solid #ddd;\"");
-                html = html.replaceAll("<th(?![^>]*style)", "<th style=\"padding:8px; border:1px solid #ddd; background-color:#f2f2f2;\"");
-            }
-            
-            // 确保图片正确显示
-            html = html.replaceAll("<img(?![^>]*style)", "<img style=\"border:0; display:block; max-width:100%;\"");
-            
-            // 确保链接颜色正确
-            html = html.replaceAll("<a(?![^>]*style)", "<a style=\"color:#0066cc;\"");
-            
-            return html;
-        } catch (Exception e) {
-            logger.error("处理HTML内容时出错: {}", e.getMessage(), e);
-            return html;
         }
     }
 }
