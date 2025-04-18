@@ -177,12 +177,9 @@ public class EmailSenderService {
                         sb.append("<head>");
                         sb.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
                         sb.append("<style type=\"text/css\">");
-                        // 添加基本样式和从JSON获取的CSS
+                        // 添加基本样式
                         sb.append("body { margin: 0; padding: 0; font-family: Arial, sans-serif; }");
-                        sb.append("table { border-collapse: collapse; width: 100%; }");
-                        sb.append("th { background-color: #f2f2f2; text-align: left; padding: 8px; border: 1px solid #ddd; }");
-                        sb.append("td { padding: 8px; text-align: left; border: 1px solid #ddd; }");
-                        sb.append("img { max-width: 100%; height: auto; }");
+                        // 从JSON获取的CSS，保留原始样式
                         sb.append(css);
                         sb.append("</style>");
                         sb.append("</head>");
@@ -585,22 +582,37 @@ public class EmailSenderService {
         }
         
         try {
-            // 确保表格对齐方式正确
-            htmlContent = htmlContent.replaceAll("<table([^>]*)align=\"center\"([^>]*)>", 
-                    "<table$1align=\"center\"$2 style=\"margin-left:auto;margin-right:auto;\">")
-                .replaceAll("<table([^>]*)align=\"right\"([^>]*)>", 
-                    "<table$1align=\"right\"$2 style=\"margin-left:auto;margin-right:0;\">")
-                .replaceAll("<tr([^>]*)align=\"center\"([^>]*)>", 
-                    "<tr$1align=\"center\"$2 style=\"text-align:center;\">")
-                .replaceAll("<tr([^>]*)align=\"right\"([^>]*)>", 
-                    "<tr$1align=\"right\"$2 style=\"text-align:right;\">");
+            // 只添加最基本的表格结构样式，不影响颜色和其他表现
+            String tableStyles = "<style>\n" +
+                "table { border-collapse: collapse; width: 100%; table-layout: fixed; }\n" +
+                "td { word-wrap: break-word; }\n" +
+                "</style>\n";
             
-            // 强化图片对齐方式
+            // 在head结束前添加样式
+            htmlContent = htmlContent.replace("</head>", tableStyles + "</head>");
+            
+            // 确保表格有边框合并和固定布局，但不覆盖其他样式
+            htmlContent = htmlContent.replaceAll("<table([^>]*)>", 
+                    "<table$1 style=\"border-collapse:collapse; width:100%; table-layout:fixed;\">");
+            
+            // 添加Outlook专用样式，但保持最小限度
+            String outlookStyles = "<!--[if mso]>\n" +
+                "<style>\n" +
+                "table {border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt;}\n" +
+                "</style>\n" +
+                "<![endif]-->\n";
+            
+            // 在head结束前添加Outlook专用样式
+            htmlContent = htmlContent.replace("</head>", outlookStyles + "</head>");
+                
+            // 保留图片对齐方式处理
             htmlContent = htmlContent.replaceAll("<img([^>]*)class=\"img-left\"([^>]*)>", 
-                    "<img$1class=\"img-left\"$2 style=\"float:left;margin-right:15px;margin-bottom:10px;\">")
-                .replaceAll("<img([^>]*)class=\"img-center\"([^>]*)>", 
-                    "<img$1class=\"img-center\"$2 style=\"display:block;margin-left:auto;margin-right:auto;margin-bottom:10px;\">")
-                .replaceAll("<img([^>]*)class=\"img-right\"([^>]*)>", 
+                    "<img$1class=\"img-left\"$2 style=\"float:left;margin-right:15px;margin-bottom:10px;\">");
+            
+            htmlContent = htmlContent.replaceAll("<img([^>]*)class=\"img-center\"([^>]*)>", 
+                    "<img$1class=\"img-center\"$2 style=\"display:block;margin-left:auto;margin-right:auto;margin-bottom:10px;\">");
+            
+            htmlContent = htmlContent.replaceAll("<img([^>]*)class=\"img-right\"([^>]*)>", 
                     "<img$1class=\"img-right\"$2 style=\"float:right;margin-left:15px;margin-bottom:10px;\">");
                 
             return htmlContent;
