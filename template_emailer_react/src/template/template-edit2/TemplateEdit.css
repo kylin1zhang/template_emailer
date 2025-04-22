@@ -3,13 +3,15 @@
   background-color: #f0f0f0 !important; /* change canvas background color */
 }
 
-.gjs-one-bg {
+
+
+/* .gjs-one-bg {
   background-color: #ced4da;
 }
 
 .gjs-two-color {
   color: #6c757d;
-}
+} */
 
 .toolbar {
   display: flex;
