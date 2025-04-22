@@ -6,6 +6,7 @@
         "@grapesjs/react": "^1.0.0",
         "bootstrap": "^5.3.3",
         "grapesjs": "^0.22.6",
+        "grapesjs-blocks-basic": "^1.0.2",
         "oidc-client-ts": "^3.2.0",
         "react": ">=15",
         "react-bootstrap": "^2.10.9",

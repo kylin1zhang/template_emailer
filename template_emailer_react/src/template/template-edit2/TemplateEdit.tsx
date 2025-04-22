@@ -3,248 +3,239 @@ import grapesjs from 'grapesjs';
 import 'grapesjs/dist/css/grapes.min.css';
 import './TemplateEdit.css';
 import { config } from 'config/config';
+import { fetchRodData } from './rodUtils';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import plugin from 'grapesjs-blocks-basic';
 
 const TemplateEdit: React.FC = () => {
-    const editorRef = useRef<any>(null); // Store GrapesJS editor instance
-    const editorInstance = useRef<any>(null);
-    const { id } = useParams<{ id: string }>();
-    const [fileName, setFileName] = useState('');
-    const navigate = useNavigate();
-    const location = useLocation();
+  const editorRef = useRef<HTMLDivElement>(null);
+  const editorInstance = useRef<any>(null); // Store GrapesJS editor instance
+  const { id } = useParams<{ id: string }>();
+  const [fileName, setFileName] = useState('');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [releaseId, setRodData] = useState<any[]>([]); // Store ROD data
 
-    useEffect(() => {
-        if (editorRef.current) {
-            const editor = grapesjs.init({
-                container: editorRef.current,
-                fromElement: true,
-                height: '100vh',
-                width: 'auto',
-                storageManager: false,
-                plugins: [],
-                pluginsOpts: {},
-            });
 
-            // Save editor instance
-            editorRef.current = editor;
+  useEffect(() => {
+    if (editorRef.current) {
+      const editor = grapesjs.init({
+        container: editorRef.current,
+        fromElement: true,
+        height: "100vh",
+        width: 'auto',
+        storageManager: false,
+        plugins: [
+          editor => plugin(editor, { blocks: ['column1', 'column2', 'column3', 'column3-7', 'text', 'link', 'image', 'video', 'map'] }),
+        ],
+        pluginsOpts: {
 
-            addBlocks(editor);
-        }
-    }, []);
+        },
+      });
 
-    // Load template data
-    useEffect(() => {
-        if (id && editorRef.current) {
-            fetch(`${config.apiUrl}/template/load/${id}`)
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Data:', data);
-                    const editor = editorRef.current;
-                    editor.setComponents(data.html);
-                    editor.setStyle(data.css);
-                    if (location.state && location.state.fileName) {
-                        setFileName(location.state.fileName);
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-        }
-    }, [id, location]);
 
-    const handleBack = () => {
-        const confirmDiscard = window.confirm('Are you sure you want to discard your changes?');
-        if (confirmDiscard) {
-            navigate(-1); // Go back to the previous page
-        }
+      editorInstance.current = editor;
+
+      addBlocks(editor);
+    }
+  }, []);
+
+  // Load template data
+  useEffect(() => {
+    if (id && editorInstance.current) {
+      fetch(`${config.apiUrl}/template/load/${id}`)
+        .then(response => response.json())
+        .then(data => {
+          console.log('Data:', data);
+          const editor = editorInstance.current;
+          editor.setComponents(data.html);
+          editor.setStyle(data.css);
+          if (location.state && location.state.fileName) {
+            setFileName(location.state.fileName);
+          }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+  }, [id, location.state]);
+
+  const handleBack = () => {
+    const confirmDiscard = window.confirm('Are you sure you want to discard your changes?');
+    if (confirmDiscard) {
+      navigate(-1); // Go back to the previous page
+    }
+  };
+
+  const handleSave = async () => {
+    console.log('FileName:', fileName);
+    if (!fileName) {
+      alert('Please enter a file name.');
+      return;
+    }
+
+    const editor = editorInstance.current;
+    const html = editor.getHtml();
+    const css = editor.getCss();
+    const jsonData = JSON.stringify({ html, css });
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const formData = new FormData();
+    formData.append('file', blob, `${fileName}.json`);
+    if (id) formData.append('objectId', id);
+
+    try {
+      const response = await fetch(`${config.apiUrl}/template/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      await response.text();
+      alert('Save successful!');
+      navigate(-1); // Go back to the previous page      
+    } catch (error) {
+      alert('Save failed. Please try again.');
+      console.error('Error:', error);
+    }
+  };
+
+
+
+  // Fetch ROD data on page load
+  useEffect(() => {
+    const loadRodData = async () => {
+      const data = await fetchRodData(releaseId);
+      setRodData(data);
     };
 
-    const handleSave = async () => {
-        console.log('Filename:', fileName);
-        if (!fileName) {
-            alert('Please enter a file name.');
-            return;
-        }
+    loadRodData();
+  }, []);
 
-        const editor = editorRef.current;
-        const html = editor.getHtml() || '';
-        const css = editor.getCss() || '';
-        const jsonData = JSON.stringify({ html, css });
-        const blob = new Blob([jsonData], { type: 'application/json' });
-        const formData = new FormData();
-        formData.append('file', blob, `${fileName}.json`);
-        if (id) formData.append('objectId', id);
 
-        try {
-            const response = await fetch(`${config.apiUrl}/template/upload`, {
-                method: 'POST',
-                body: formData,
-            });
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            await response.text();
-            alert('Save successful!');
-            navigate(-1); // Go back to the previous page
-        } catch (error) {
-            alert('Save failed. Please try again.');
-            console.error('Error:', error);
-        }
-    };
+  // Get ROD block content
+  const getRodBlockContent = () => {
+    const cachedData = localStorage.getItem('rodApiData');
+    let parsedData = [];
 
-    // Add custom blocks to the editor
-    const addBlocks = (editor: any) => {
-        editor.BlockManager.add('text-block', {
-            label: `
-        <div style="text-align: center;">
-          <i class="fa fa-font" style="font-size: 24px; display: block; margin-bottom: 5px;"></i>
-          <span>Text Block</span>
+    if (cachedData) {
+      try {
+        parsedData = JSON.parse(cachedData);
+      } catch (error) {
+        console.error('Error parsing cached data:', error);
+      }
+    }
+
+
+    const dataHtml = `
+    <table style="width: 100%; border-collapse: collapse; margin-top: 20px; border: 1px solid black;">
+      <thead>
+        <tr style="background-color: #007bff; font-family: Arial; text-align: left; border: 1px solid black;">
+          <th style="padding: 8px; border: 1px solid black;">Start Date</th>
+          <th style="padding: 8px; border: 1px solid black;">Pipelines</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${parsedData.length > 0
+        ? parsedData
+          .map(
+            (item: any) => `
+                <tr style="border: 1px solid black;">
+                  <td style="padding: 8px; font-family: Arial; border: 1px solid black;">${item.startDateTimeIso}</td>
+                  <td style="padding: 8px; border: 1px solid black;">
+                    <table style="width: 100%; border-collapse: collapse; border: 1px solid black;">
+                      <thead>
+                        <tr style="background-color: #007bff; color: white; font-family: Arial; border: 1px solid black;">
+                          <th style="padding: 4px; border: 1px solid black;">Project</th>
+                          <th style="padding: 4px; border: 1px solid black;">Branch</th>
+                          <th style="padding: 4px; border: 1px solid black;">Version</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${item.pipelines
+                .map(
+                  (pipeline: any) => `
+                            <tr style="border: 1px solid black;">
+                              <td style="padding: 4px; font-family: Arial; border: 1px solid black;">${pipeline.name}</td>
+                              <td style="padding: 4px; font-family: Arial; border: 1px solid black;">${pipeline.branch}</td>
+                              <td style="padding: 4px; font-family: Arial; border: 1px solid black;">${pipeline.version}</td>
+                            </tr>
+                          `
+                )
+                .join('')
+              }
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              `
+          )
+          .join('')
+        : `<tr><td colspan="2" style="text-align: center; padding: 8px; border: 1px solid black;">No data available</td></tr>`
+      }
+      </tbody>
+    </table>
+    `;
+
+    return `
+      <div style="text-align: center;">
+        <div style="margin-top: 20px; text-align: left;">
+          ${dataHtml}
         </div>
-        `,
-            content: { type: 'text', content: 'Text!' },
-            category: 'Basic',
-        });
+      </div>
+    `;
+  };
 
-        editor.BlockManager.add('image-block', {
-            label: `
-        <div style="text-align: center;">
-          <i class="fa fa-image" style="font-size: 24px; display: block; margin-bottom: 5px;"></i>
-          <span>Image Block</span>
-        </div>
-        `,
-            content: { type: 'image', src: 'https://via.placeholder.com/150' },
-            category: 'Basic',
-        });
-
-        editor.BlockManager.add('custom-block', {
-            label: `
-        <div style="text-align: center;">
-          <i class="fa fa-cube" style="font-size: 24px; display: block; margin-bottom: 5px;"></i>
-          <span>Custom Block</span>
-        </div>
-        `,
-            content: `<div class="custom-block">Custom Block</div>`,
-            category: 'Custom',
-        });
-
-        editor.BlockManager.add('one-column', {
-            label: `
-        <div style="text-align: center;">
-          <i class="fa fa-square" style="font-size: 24px; display: block; margin-bottom: 5px;"></i>
-          <span>One Column</span>
-        </div>
-        `,
-            content: `
-        <div class="one-column" data-gjs-droppable="true">
-          <div class="column" style="min-height: 50px; border: 1px dashed #ccc; padding: 10px; position: relative;">
-            <div class="placeholder" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; pointer-events: none;">
+// Add custom blocks to the editor
+const addBlocks = (editor: any) => {
+  // Add ROD block
+  editor.BlockManager.add('ROD-block', {
+      //label: 'ROD Block',
+      label: `
+          <div class="gjs-block__media">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+                  <rect x="3" y="4" width="18" height="2" fill="currentColor"></rect>
+                  <rect x="3" y="8" width="18" height="2" fill="currentColor"></rect>
+                  <rect x="3" y="12" width="18" height="2" fill="currentColor"></rect>
+                  <rect x="3" y="16" width="18" height="2" fill="currentColor"></rect>
+              </svg>
           </div>
-        </div>
-        </div>
+          <div class="gjs-block-label">ROD Table</div>
       `,
-            category: 'Layout',
-        });
+      content: getRodBlockContent(),
+      category: 'Basic',
+      //attributes: { class: 'fa fa-cube' }, // Icon for the block
+  });
 
-        editor.BlockManager.add('two-column', {
-            label: `
-        <div style="text-align: center;">
-          <i class="fa fa-columns" style="font-size: 24px; display: block; margin-bottom: 5px;"></i>
-          <span>Two Columns</span>
-        </div>`,
-            content: `
-        <div class="two-column" data-gjs-droppable="true">
-          <div class="column" style="min-height: 50px; border: 1px dashed #ccc; padding: 10px;">
-            <div class="placeholder" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; pointer-events: none;"></div>
-          </div>
-          <div class="column" style="min-height: 50px; border: 1px dashed #ccc; padding: 10px;">
-            <div class="placeholder" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #aaa; pointer-events: none;"></div>
-          </div>
-        </div>`,
-            category: 'Layout',
-        });
-    };
-
-    // Add default styles
-editor.CssComposer.addRules(`
-    /* Custom Block */
-    .custom-block {
-      width: 50%;
-      height: 200px;
-      margin: 0 auto;
-      text-align: center;
-      background-color: #f0f0f0;
-      line-height: 200px;
-      border: 1px solid #ddd;
-    }
-    
-    /* One Column */
-    .one-column {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      width: 100%;
-      background-color: #e0e0e0;
-      border: 1px solid #ccc;
-    }
-    
-    .one-column .column {
-      width: 100%;
-      text-align: center;
-    }
-    
-    /* Two Columns */
-    .two-column {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      width: 100%;
-      background-color: #e0e0e0;
-      border: 1px solid #ccc;
-    }
-    
-    .two-column .column {
-      text-align: center;
-      background-color: #f9f9f9;
-      border: 1px dashed #ddd;
-      padding: 10px;
-    }
-    
-    .column:empty > .placeholder {
-      display: block !important;
-    }
-    
-    .column:not(:empty) > .placeholder {
-      display: none !important;
-    }
-    
-    .column:empty .placeholder::before {
-      content: "Drag components here";
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: #aaa;
-      pointer-events: none;
-    }
-    `);
-};  
-    return (
-        <div>
-            <div className="toolbar">
-                <div className="toolbar-left">
-                    <label htmlFor="fileName">FileName:</label>
-                    <input
-                        id="fileName"
-                        type="text"
-                        value={fileName}
-                        onChange={(e) => setFileName(e.target.value)}
-                    />
-                </div>
-                <div className="toolbar-right">
-                    <button onClick={handleBack}>Back</button>
-                    <button onClick={handleSave}>Save</button>
-                </div>
-            </div>
-            <div ref={editorRef} className="editor-container"></div>
-        </div>
-    );
+  // Add default styles
+  editor.CssComposer.addRules(
+      `.rod-block {
+          width: auto; /* 表格宽度根据内容调整 */
+          margin-left: 0; /* 表格站近画布左边 */
+          text-align: center;
+          background-color: #f0f0f0;
+          border: 1px solid #ddd;
+          table-layout: auto; /* 列宽根据内容调整 */
+      }`
+  );
 };
+
+  return (
+      <div>
+          <div className="toolbar">
+              <div className="toolbar-left">
+                  <label htmlFor="fileName">fileName:</label>
+                  <input
+                      id="fileName"
+                      type="text"
+                      value={fileName}
+                      onChange={(e) => setFileName(e.target.value)}
+                  />
+              </div>
+              <div className="toolbar-right">
+                  <button onClick={handleBack}>Back</button>
+                  <button onClick={handleSave}>Save</button>
+              </div>
+          </div>
+          <div ref={editorRef} className="editor-container"></div>
+      </div>
+  );
 };
 
 export default TemplateEdit;

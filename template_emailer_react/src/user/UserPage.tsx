@@ -17,7 +17,7 @@ const UserPage: React.FC = () => {
     const params = {
       page: currentPage - 1,
       size: usersPerPage,
-      soeid: filter
+      soeId: filter,
     };
 
     fetch(`${config.apiUrl}/user/usersList`, {
@@ -40,7 +40,46 @@ const UserPage: React.FC = () => {
   };
 
   const handleDelete = (id: string) => {
-    console.log('Delete user with id:', id);
+    // 确认删除操作
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      // 调用删除API
+      fetch(`${config.apiUrl}/user/${id}`, {
+        method: 'DELETE',
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Failed to delete user');
+          }
+          return response.text();
+        })
+        .then(result => {
+          console.log('Delete successful:', result);
+          alert('User deleted successfully');
+          
+          // 刷新用户列表
+          const params = {
+            page: currentPage - 1,
+            size: usersPerPage,
+            name: filter,
+          };
+          return fetch(`${config.apiUrl}/user/usersList`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(params),
+          });
+        })
+        .then(response => response.json())
+        .then((data: Page<UserInfo>) => {
+          setUsers(data.content);
+          setTotalPages(data.totalPages);
+        })
+        .catch(error => {
+          console.error('Error deleting user:', error);
+          alert(`Failed to delete user: ${error.message}`);
+        });
+    }
   };
 
   const handleCreate = () => {
@@ -57,11 +96,11 @@ const UserPage: React.FC = () => {
   return (
     <div className="user-page">
       <div className="header">
-        <h1>Users</h1>
+        <h1>User</h1>
         <button className="create-button" onClick={handleCreate}>Create</button>
       </div>
       <div className="filter">
-        <label>Filter by Name:</label>
+        <label>Filter by Soeid:</label>
         <input type="text" value={filter} onChange={handleFilterChange} />
       </div>
       <table className="user-table">
@@ -92,7 +131,9 @@ const UserPage: React.FC = () => {
       <div className="pagination">
         <button onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1}>Previous</button>
         {[...Array(totalPages).keys()].map(number => (
-          <button key={number + 1} onClick={() => paginate(number + 1)}>{number + 1}</button>
+          <button key={number + 1} onClick={() => paginate(number + 1)}>
+            {number + 1}
+          </button>
         ))}
         <button onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages}>Next</button>
       </div>
