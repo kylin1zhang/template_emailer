@@ -143,64 +143,8 @@ public class EmailSenderService {
                 if (template != null) {
                     if (template.getContent() != null) {
                         logger.debug("Converting template content to HTML for email: {}", email.getId());
-                        
-                        // 解析 GrapesJS 生成的 JSON 格式
-                        ObjectMapper objectMapper = new ObjectMapper();
-                        JsonNode rootNode = objectMapper.readTree(template.getContent());
-                        
-                        // 从 JSON 中提取 HTML 和 CSS
-                        String html = "";
-                        String css = "";
-                        
-                        if (rootNode.has("html")) {
-                            html = rootNode.get("html").asText();
-                            
-                            // 立即清理HTML内容，移除所有特殊字符
-                            html = cleanHtml(html);
-                            
-                            // 添加日志
-                            logger.info("清理后的HTML内容长度: {}", html.length());
-                        }
-                        
-                        if (rootNode.has("css")) {
-                            css = rootNode.get("css").asText();
-                            
-                            // 清理CSS中可能包含的特殊字符
-                            css = css.replaceAll("[B̲I̲U̲S̲]", "")
-                                 .replaceAll("(?:B|I|U|S|_|/|x)+", "");
-                        }
-                        
-                        // 构建简单的HTML邮件内容 - 使用纯ASCII字符集
-                        StringBuilder sb = new StringBuilder();
-                        sb.append("<!DOCTYPE html>");
-                        sb.append("<html>");
-                        sb.append("<head>");
-                        sb.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
-                        sb.append("<meta http-equiv=\"Content-Transfer-Encoding\" content=\"8bit\">");
-                        sb.append("<style type=\"text/css\">");
-                        // 添加基本样式和从JSON获取的CSS
-                        sb.append("body{margin:0;padding:0;font-family:Arial,sans-serif;}");
-                        sb.append("table{border-collapse:collapse;width:100%;}");
-                        // 只保留最基本的表格样式，不强制设置颜色和边框样式
-                        sb.append("img{max-width:100%;height:auto;}");
-                        sb.append(css);
-                        sb.append("</style>");
-                        sb.append("</head>");
-                        sb.append("<body>");
-                        sb.append(html);
-                        sb.append("</body>");
-                        sb.append("</html>");
-                        
-                        content = sb.toString();
-                        
-                        // 确保最终内容不含任何特殊字符 - 彻底清理
-                        content = content.replaceAll("[B̲I̲U̲S̲]", "")
-                                     .replaceAll("(?:B|I|U|S|_|/|x)+", "")
-                                     .replaceAll("&#65279;", "")
-                                     .replaceAll("[\u0080-\u00FF]", "");
-                        
-                        // 记录最终生成的内容长度
-                        logger.info("Final HTML content length: {}", content.length());
+                        content = JsonToHtmlConverter.convertJsonToHtml(template.getContent());
+                        logger.debug("Template content converted successfully");
                     } else {
                         logger.warn("Template {} has null content, using default content for email: {}", 
                                 template.getId(), email.getId());
@@ -288,7 +232,7 @@ public class EmailSenderService {
     }
     
     /**
-     * 查找并处理所有图片节点
+     * 递归处理JSON节点中的所有图片
      */
     private void processImagesInJsonNode(JsonNode node, MimeMessageHelper helper, String imageResourcePath) throws Exception {
         if (node == null) {
@@ -307,12 +251,12 @@ public class EmailSenderService {
             // 处理图片节点
             if ("image".equals(nodeType) && node.has("values") && node.path("values").has("src")) {
                 String imageUrl = node.path("values").path("src").asText();
-                if (imageUrl != null && !imageUrl.isEmpty()) {
+                
+                if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://") && !imageUrl.startsWith("data:")) {
                     String imgFileName = getFileNameFromPath(imageUrl);
                     if (imgFileName != null && !imgFileName.isEmpty()) {
                         String contentId = generateContentId(imgFileName);
                         processImageFile(imgFileName, imageUrl, contentId, helper, imageResourcePath);
-                        logger.info("处理图片节点: {}, contentId: {}", imgFileName, contentId);
                     }
                 }
             }
@@ -330,7 +274,7 @@ public class EmailSenderService {
         }
     }
     
-    // 处理HTML内容中的图片
+    // 添加新方法: 处理HTML内容中的图片
     private void processImagesInHtml(String htmlContent, MimeMessageHelper helper, String imageResourcePath) throws Exception {
         if (htmlContent == null || htmlContent.isEmpty()) {
             return;
@@ -342,24 +286,14 @@ public class EmailSenderService {
         
         while (matcher.find()) {
             String imageUrl = matcher.group(1);
-            logger.info("Found image URL in HTML: {}", imageUrl);
             
-            if (imageUrl.startsWith("data:")) {
-                // 对于data URL格式的图片，不需要特殊处理
-                logger.info("Skipping data URL image");
-                continue;
-            }
-            
-            // 处理图片
-            String imgFileName = getFileNameFromPath(imageUrl);
-            if (imgFileName != null && !imgFileName.isEmpty()) {
-                String contentId = generateContentId(imgFileName);
-                logger.info("Creating contentId for image: {} -> {}", imgFileName, contentId);
-                
-                try {
+            // 只处理本地图片 (非http/https/data:开头的URL)
+            if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://") && !imageUrl.startsWith("data:")) {
+                String imgFileName = getFileNameFromPath(imageUrl);
+                if (imgFileName != null && !imgFileName.isEmpty()) {
+                    String contentId = generateContentId(imgFileName);
+                    logger.debug("Found image in HTML: {}, contentId: {}", imgFileName, contentId);
                     processImageFile(imgFileName, imageUrl, contentId, helper, imageResourcePath);
-                } catch (Exception e) {
-                    logger.warn("Failed to process image {}: {}", imgFileName, e.getMessage());
                 }
             }
         }
@@ -464,71 +398,6 @@ public class EmailSenderService {
                 return "image/x-icon";
             default:
                 return "application/octet-stream";
-        }
-    }
-    
-    /**
-     * 确保对齐方式样式正确应用于HTML内容
-     */
-    private String ensureAlignmentStyles(String htmlContent) {
-        if (htmlContent == null || htmlContent.isEmpty()) {
-            return htmlContent;
-        }
-        
-        try {
-            // 确保表格对齐方式正确，但不强制设置表格样式
-            htmlContent = htmlContent.replaceAll("<table([^>]*)align=\"center\"([^>]*)>", 
-                    "<table$1align=\"center\"$2 style=\"margin-left:auto;margin-right:auto;\">")
-                .replaceAll("<table([^>]*)align=\"right\"([^>]*)>", 
-                    "<table$1align=\"right\"$2 style=\"margin-left:auto;margin-right:0;\">")
-                .replaceAll("<tr([^>]*)align=\"center\"([^>]*)>", 
-                    "<tr$1align=\"center\"$2 style=\"text-align:center;\">")
-                .replaceAll("<tr([^>]*)align=\"right\"([^>]*)>", 
-                    "<tr$1align=\"right\"$2 style=\"text-align:right;\">");
-            
-            // 强化图片对齐方式
-            htmlContent = htmlContent.replaceAll("<img([^>]*)class=\"img-left\"([^>]*)>", 
-                    "<img$1class=\"img-left\"$2 style=\"float:left;margin-right:15px;margin-bottom:10px;\">")
-                .replaceAll("<img([^>]*)class=\"img-center\"([^>]*)>", 
-                    "<img$1class=\"img-center\"$2 style=\"display:block;margin-left:auto;margin-right:auto;margin-bottom:10px;\">")
-                .replaceAll("<img([^>]*)class=\"img-right\"([^>]*)>", 
-                    "<img$1class=\"img-right\"$2 style=\"float:right;margin-left:15px;margin-bottom:10px;\">");
-                
-            return htmlContent;
-        } catch (Exception e) {
-            logger.error("应用对齐样式时出错: {}", e.getMessage());
-            return htmlContent; // 返回原始内容
-        }
-    }
-
-    /**
-     * 清理HTML内容
-     */
-    private String cleanHtml(String html) {
-        if (html == null || html.isEmpty()) {
-            return html;
-        }
-        
-        try {
-            // 移除HTML开头的特殊字符（B/I/U/S和其他格式标记）
-            html = html.replaceAll("^\\s*(?:B̲|I̲|U̲|S̲|/|_|x)+\\s*", "");
-            
-            // 移除多余的div容器和编辑器标记
-            html = html.replaceAll("<div[^>]*gjs-editor[^>]*>.*?<div[^>]*gjs-cv-canvas[^>]*>", "");
-            html = html.replaceAll("<div[^>]*id=\"gjs-cv-tools\"[^>]*>.*?</div></div></div>", "");
-            
-            // 移除所有pointer-events相关的内联样式
-            html = html.replaceAll("pointer-events:[^;\"']*;?", "");
-            
-            // 移除MIME分隔标记
-            html = html.replaceAll("------=_Part_[^\\r\\n]*", "");
-            html = html.replaceAll("Content-Type: [^\\r\\n]*", "");
-            html = html.replaceAll("Content-Transfer-Encoding: [^\\r\\n]*", "");
-            
-            return html;
-        } catch (Exception e) {
-            logger.error("清理HTML内容时出错: {}", e.getMessage());
-            return html;
         }
     }
 }
