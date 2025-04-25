@@ -39,7 +39,6 @@ public interface EmailDao extends MongoRepository<Email, String> {
         }
     }
     
-    // 删除冲突的findById方法，使用默认的
     
     // 添加自定义方法
     default Email findEmailById(String id) {

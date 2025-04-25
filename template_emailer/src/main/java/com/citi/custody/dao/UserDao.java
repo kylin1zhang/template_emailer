@@ -14,19 +14,18 @@ import java.util.List;
 
 @Component
 public class UserDao {
-
     @Autowired
     MongoTemplate mongoTemplate;
-
+    
     public void saveUser(User user) {
         mongoTemplate.save(user);
     }
-
+    
     public User findUserById(String id) {
         Query query = new Query(Criteria.where("soeId").is(id));
         return this.mongoTemplate.findOne(query, User.class);
     }
-
+    
     public Page<User> findAllByName(String name, Pageable pageable) {
         Query query = new Query();
         if (name != null && !name.isEmpty()) {
@@ -36,4 +35,10 @@ public class UserDao {
         List<User> users = mongoTemplate.find(query.with(pageable), User.class);
         return new PageImpl<>(users, pageable, count);
     }
+    
+    public void deleteUser(String id) {
+        Query query = new Query(Criteria.where("soeId").is(id));
+        mongoTemplate.remove(query, User.class);
+    }
+    
 }
